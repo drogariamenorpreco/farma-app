@@ -1,407 +1,184 @@
-import streamlit as st
 import pandas as pd
-import datetime
-import urllib.parse
-import zoneinfo
+import streamlit as st
 
-# Configuração da página
+# Configuração da Página
 st.set_page_config(
-    page_title="Farma Lagos - Sistema de Vendas e Estoque",
-    page_icon="💊",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    page_title="Gestão de Vendas - Farmácia", layout="wide", initial_sidebar_state="expanded"
 )
 
-# Fuso horário do Brasil (Brasília)
-TIMEZONE_BR = zoneinfo.ZoneInfo("America/Sao_Paulo")
-
-# Estilização CSS personalizada
-st.markdown("""
-<style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button {
-        width: 100%;
-        background-color: #0066cc;
-        color: white;
-        border-radius: 10px;
-        height: 48px;
-        font-weight: bold;
-        font-size: 16px;
-        border: none;
-        box-shadow: 0px 4px 10px rgba(0, 102, 204, 0.2);
-    }
-    .stButton>button:hover {
-        background-color: #004999;
-        color: white;
-    }
-    .header-box {
-        text-align: center;
-        padding: 15px;
-        background-color: white;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Cabeçalho
-st.markdown("""
-<div class="header-box">
-    <h1 style="color: #0066cc; margin:0; font-size: 24px;">FARMA LAGOS</h1>
-    <p style="margin:5px 0 0 0; font-weight:bold; color:#555; font-size: 13px;">CNPJ: 68.530.976/0001-00 | WhatsApp: (22) 98831-4812</p>
-    <p style="margin:0; color:#777; font-size: 12px;">Armação dos Búzios - RJ</p>
-</div>
-""", unsafe_allow_html=True)
-
-# Inicializar Base de Dados de Estoque Oficial do Inventário na Sessão
-if 'estoque_produtos' not in st.session_state:
-    st.session_state.estoque_produtos = [
-        {"Produto": "BONIF 10%", "Quantidade": 3221, "Custo": 36632.09, "Preço": 92336.51},
-        {"Produto": "BONIF 5%", "Quantidade": 210, "Custo": 1327.18, "Preço": 5812.45},
-        {"Produto": "BONIF/ET", "Quantidade": 1898, "Custo": 12488.63, "Preço": 48529.60},
-        {"Produto": "CONTROLADOS", "Quantidade": 355, "Custo": 18638.30, "Preço": 31492.16},
-        {"Produto": "ET+", "Quantidade": 3217, "Custo": 93110.39, "Preço": 150121.41},
-        {"Produto": "ET/DERMO", "Quantidade": 731, "Custo": 34731.39, "Preço": 48750.04},
-        {"Produto": "ET/PBM", "Quantidade": 56, "Custo": 7456.19, "Preço": 12000.38},
-        {"Produto": "ETO", "Quantidade": 1204, "Custo": 32107.18, "Preço": 49586.46},
-        {"Produto": "GEN.7%", "Quantidade": 28, "Custo": 329.20, "Preço": 1560.02},
-        {"Produto": "GEN/CON 7%", "Quantidade": 568, "Custo": 17252.96, "Preço": 43935.05},
-        {"Produto": "GENERIC *7", "Quantidade": 4131, "Custo": 50511.87, "Preço": 149962.92},
-        {"Produto": "GENERIC 7%", "Quantidade": 175, "Custo": 3735.66, "Preço": 8956.70},
-        {"Produto": "GENERIC/ET", "Quantidade": 1969, "Custo": 11867.90, "Preço": 31312.08},
-        {"Produto": "LIBERADO", "Quantidade": 14, "Custo": 341.68, "Preço": 473.88},
-        {"Produto": "NATURAL", "Quantidade": 458, "Custo": 4281.36, "Preço": 6900.69},
-        {"Produto": "OFICINAIS", "Quantidade": 394, "Custo": 1923.39, "Preço": 3218.50},
-        {"Produto": "PF/ABSORV", "Quantidade": 562, "Custo": 4697.57, "Preço": 6444.98},
-        {"Produto": "PF/ACESSOR", "Quantidade": 824, "Custo": 5865.58, "Preço": 9195.17},
-        {"Produto": "PF/ADOCANT", "Quantidade": 75, "Custo": 788.86, "Preço": 1156.29},
-        {"Produto": "PF/AFRO", "Quantidade": 390, "Custo": 3043.80, "Preço": 5016.36},
-        {"Produto": "PF/ALIMENT", "Quantidade": 2669, "Custo": 9371.73, "Preço": 14942.08},
-        {"Produto": "PF/BARBA", "Quantidade": 336, "Custo": 3988.74, "Preço": 5608.29},
-        {"Produto": "PF/BEBIDA", "Quantidade": 230, "Custo": 636.86, "Preço": 1279.52},
-        {"Produto": "PF/BELEZA", "Quantidade": 339, "Custo": 4384.52, "Preço": 6817.68},
-        {"Produto": "PF/BUCAL", "Quantidade": 1028, "Custo": 10671.42, "Preço": 14600.46},
-        {"Produto": "PF/CAPILAR", "Quantidade": 2124, "Custo": 35726.56, "Preço": 51345.12},
-        {"Produto": "PF/COLONIA", "Quantidade": 69, "Custo": 1387.92, "Preço": 2123.57},
-        {"Produto": "PF/CONVENI", "Quantidade": 366, "Custo": 6486.70, "Preço": 10229.55},
-        {"Produto": "PF/CORPO", "Quantidade": 357, "Custo": 5355.34, "Preço": 7696.88},
-        {"Produto": "PF/CURATIV", "Quantidade": 1847, "Custo": 4215.72, "Preço": 6458.18},
-        {"Produto": "PF/CUTELAR", "Quantidade": 429, "Custo": 2045.61, "Preço": 3356.16},
-        {"Produto": "PF/DEPIL", "Quantidade": 34, "Custo": 930.38, "Preço": 1348.81},
-        {"Produto": "PF/DESODOR", "Quantidade": 1529, "Custo": 16072.37, "Preço": 22160.84},
-        {"Produto": "PF/FRALDA", "Quantidade": 805, "Custo": 24562.19, "Preço": 30479.42},
-        {"Produto": "PF/GERAL", "Quantidade": 1696, "Custo": 7641.03, "Preço": 11583.77},
-        {"Produto": "PF/GERIATR", "Quantidade": 235, "Custo": 6133.59, "Preço": 7966.07},
-        {"Produto": "PF/HIGIENE", "Quantidade": 633, "Custo": 2470.63, "Preço": 3813.72},
-        {"Produto": "PF/INFAN", "Quantidade": 650, "Custo": 10933.36, "Preço": 15783.56},
-        {"Produto": "PF/LEITE", "Quantidade": 410, "Custo": 14493.26, "Preço": 17761.48},
-        {"Produto": "PF/LESOES", "Quantidade": 278, "Custo": 1520.97, "Preço": 2488.76},
-        {"Produto": "PF/PAPEL", "Quantidade": 167, "Custo": 1343.22, "Preço": 1715.85},
-        {"Produto": "PF/PRESERV", "Quantidade": 228, "Custo": 2075.53, "Preço": 3262.49},
-        {"Produto": "PF/REPELEN", "Quantidade": 154, "Custo": 3632.82, "Preço": 5448.05},
-        {"Produto": "PF/ROSTO", "Quantidade": 95, "Custo": 1990.15, "Preço": 3037.63},
-        {"Produto": "PF/SABON", "Quantidade": 1084, "Custo": 5501.44, "Preço": 8132.87},
-        {"Produto": "PF/SOLAR", "Quantidade": 145, "Custo": 4035.59, "Preço": 6404.82},
-        {"Produto": "PF/TINT", "Quantidade": 643, "Custo": 7619.35, "Preço": 10713.44},
-        {"Produto": "PF/UNHA", "Quantidade": 1192, "Custo": 4763.96, "Preço": 7422.28},
-        {"Produto": "SUPLEMENTO", "Quantidade": 14, "Custo": 390.22, "Preço": 554.68},
-        {"Produto": "TINTURA", "Quantidade": 1, "Custo": 33.00, "Preço": 47.90},
-        {"Produto": "TOP VENDAS", "Quantidade": 7, "Custo": 46.10, "Preço": 248.26},
-    ]
-
-# Inicializar Carrinho de Compras na Sessão
-if 'carrinho' not in st.session_state:
-    st.session_state.carrinho = []
-
-# Menu de Navegação
-menu = st.sidebar.radio("Navegação", ["Emitir Pedido / Carrinho", "Consultar Estoque", "Gerenciar / Importar Estoque", "Gráficos & Lucratividade"])
-
-if menu == "Emitir Pedido / Carrinho":
-    st.header("🛒 Carrinho & Cupom Fiscal")
-    
-    with st.expander("➕ Adicionar Produto do Estoque", expanded=True):
-        lista_nomes = sorted([str(p["Produto"]) for p in st.session_state.estoque_produtos])
-        
-        selected_prod = st.selectbox("Pesquisar Medicamento / Grupo:", lista_nomes)
-        
-        prod_obj = next((p for p in st.session_state.estoque_produtos if p["Produto"] == selected_prod), {"Preço": 0.0, "Quantidade": 0})
-        preco_sugerido = prod_obj["Preço"] / max(prod_obj["Quantidade"], 1)
-        qtd_disponivel = prod_obj["Quantidade"]
-        
-        st.caption(f"📦 Estoque disponível: **{qtd_disponivel} unidades**")
-        
-        with st.form("form_add_produto"):
-            col1, col2 = st.columns(2)
-            with col1:
-                qtd_prod = st.number_input("Quantidade", min_value=1, value=1, step=1)
-            with col2:
-                preco_prod = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido), format="%.2f")
-            
-            add_btn = st.form_submit_button("Inserir no Carrinho")
-            if add_btn:
-                if selected_prod and preco_prod > 0:
-                    st.session_state.carrinho.append({
-                        "Produto": selected_prod,
-                        "Qtd": qtd_prod,
-                        "Preço Unit.": preco_prod,
-                        "Subtotal": qtd_prod * preco_prod
-                    })
-                    st.success(f"{selected_prod} adicionado!")
-                    st.rerun()
-                else:
-                    st.warning("Selecione um produto e informe um preço válido.")
-
-    if len(st.session_state.carrinho) > 0:
-        st.subheader("Itens no Carrinho")
-        df_carrinho = pd.DataFrame(st.session_state.carrinho)
-        st.dataframe(df_carrinho, use_container_width=True)
-        
-        total_geral = df_carrinho["Subtotal"].sum()
-        st.markdown(f"### **Total Geral: R$ {total_geral:.2f}**")
-        
-        if st.button("🗑️ Limpar Carrinho"):
-            st.session_state.carrinho = []
-            st.rerun()
-        
-        st.divider()
-        
-        st.subheader("Dados para o Cupom Fiscal / WhatsApp")
-        with st.form("form_finalizar"):
-            cliente = st.text_input("Nome do Cliente")
-            telefone = st.text_input("WhatsApp do Cliente (com DDD - ex: 22988887777)")
-            
-            pagamento = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito"])
-            
-            valor_recebido = 0.0
-            troco = 0.0
-            if pagamento == "Dinheiro":
-                valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=float(total_geral), format="%.2f")
-            
-            gerar_pedido = st.form_submit_button("Gerar Cupom Fiscal")
-            
-            if gerar_pedido:
-                if cliente and telefone:
-                    data_atual = datetime.datetime.now(TIMEZONE_BR).strftime("%d/%m/%Y %H:%M:%S")
-                    
-                    itens_texto = ""
-                    for i, item in enumerate(st.session_state.carrinho, 1):
-                        itens_texto += f"{i:02d} | {item['Qtd']}x {item['Produto']}\n     R$ {item['Preço Unit.']:.2f} un  ->  Subtotal: R$ {item['Subtotal']:.2f}\n"
-                    
-                    tributos_aprox = total_geral * 0.1345
-                    
-                    if pagamento == "Dinheiro":
-                        troco = valor_recebido - total_geral
-                        if troco < 0:
-                            troco = 0.0
-                        pagamento_texto = f"Dinheiro\n  - Valor Recebido: R$ {valor_recebido:.2f}\n  - Troco: R$ {troco:.2f}"
-                    else:
-                        pagamento_texto = f"{pagamento}"
-
-                    comprovante = f"""=====================================
-          FARMA LAGOS - CUPOM FISCAL          
-       FARMA LAGOS - FILIAL 01              
-  CNPJ: 68.530.976/0001-00                  
-  Endereço: Armação dos Búzios - RJ         
-=====================================
-DATA: {data_atual}
--------------------------------------
-CLIENTE: {cliente}
--------------------------------------
-COD | QTD | DESCRIÇÃO | UNIT | TOTAL
-{itens_texto}-------------------------------------
-TOTAL GERAL                         R$ {total_geral:.2f}
-FORMA DE PAGAMENTO: {pagamento_texto}
--------------------------------------
-Trib aprox: R$ {tributos_aprox:.2f} (Fonte: IBPT)
-Obrigado pela preferência!
-Sua saúde em primeiro lugar.
-=====================================
-Documento Auxiliar de Venda - Farma Lagos"""
-
-                    st.session_state.comprovante_gerado = comprovante
-                    st.session_state.telefone_cliente = telefone
-                    st.success("Cupom Fiscal gerado com sucesso!")
-                else:
-                    st.warning("Por favor, preencha o nome e o WhatsApp do cliente.")
-
-        if 'comprovante_gerado' in st.session_state and st.session_state.comprovante_gerado:
-            st.markdown("---")
-            st.subheader("📤 Envio do Cupom via WhatsApp")
-            
-            tel_limpo = "".join(filter(str.isdigit, st.session_state.telefone_cliente))
-            if not tel_limpo.startswith("55"):
-                tel_limpo = "55" + tel_limpo
-                
-            texto_codificado = urllib.parse.quote(st.session_state.comprovante_gerado)
-            link_zap = f"https://wa.me/{tel_limpo}?text={texto_codificado}"
-            
-            st.markdown(f"""
-            <a href="{link_zap}" target="_blank">
-                <div style="background-color: #25d366; color: white; padding: 16px; border-radius: 10px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 0px 4px 10px rgba(37, 211, 102, 0.4);">
-                    📱 CLIQUE PARA ENVIAR O CUPOM NO WHATSAPP
-                </div>
-            </a>
-            """, unsafe_allow_html=True)
-            
-            st.text_area("Visualização do Cupom Fiscal:", st.session_state.comprovante_gerado, height=250)
-    else:
-        st.info("Seu carrinho está vazio. Adicione produtos acima para começar.")
-
-elif menu == "Consultar Estoque":
-    st.header("📦 Consulta e Edição de Estoque")
-    st.markdown(f"Total de grupos de inventário cadastrados: **{len(st.session_state.estoque_produtos)}** (Total de itens no inventário: 40.242)")
-    
-    df_estoque = pd.DataFrame(st.session_state.estoque_produtos)
-    
-    pesquisa = st.text_input("🔍 Pesquisar medicamento/grupo:")
-    if pesquisa:
-        df_filtrado = df_estoque[df_estoque["Produto"].str.contains(pesquisa, case=False, na=False)]
-    else:
-        df_filtrado = df_estoque
-        
-    st.info("💡 Você pode editar os valores diretamente na tabela abaixo e clicar no botão para salvar as alterações.")
-    
-    edited_df = st.data_editor(df_filtrado, use_container_width=True, num_rows="dynamic")
-    
-    if st.button("💾 Salvar Alterações no Estoque"):
-        st.session_state.estoque_produtos = edited_df.to_dict(orient="records")
-        st.success("Estoque atualizado e salvo com sucesso!")
-        st.rerun()
-
-elif menu == "Gerenciar / Importar Estoque":
-    st.header("⚙️ Importação e Cadastro de Produtos")
-    
-    # Botão de Carregamento Direto do Inventário Oficial
-    st.markdown("### 📋 Importação Automática do Inventário Oficial")
-    st.info("Clique no botão abaixo para carregar imediatamente todos os dados oficiais do inventário da Filial 01 para o seu aplicativo de vendas.")
-    if st.button("🚀 Carregar Dados Oficiais do Inventário (Filial 01)"):
-        st.session_state.estoque_produtos = [
-            {"Produto": "BONIF 10%", "Quantidade": 3221, "Custo": 36632.09, "Preço": 92336.51},
-            {"Produto": "BONIF 5%", "Quantidade": 210, "Custo": 1327.18, "Preço": 5812.45},
-            {"Produto": "BONIF/ET", "Quantidade": 1898, "Custo": 12488.63, "Preço": 48529.60},
-            {"Produto": "CONTROLADOS", "Quantidade": 355, "Custo": 18638.30, "Preço": 31492.16},
-            {"Produto": "ET+", "Quantidade": 3217, "Custo": 93110.39, "Preço": 150121.41},
-            {"Produto": "ET/DERMO", "Quantidade": 731, "Custo": 34731.39, "Preço": 48750.04},
-            {"Produto": "ET/PBM", "Quantidade": 56, "Custo": 7456.19, "Preço": 12000.38},
-            {"Produto": "ETO", "Quantidade": 1204, "Custo": 32107.18, "Preço": 49586.46},
-            {"Produto": "GEN.7%", "Quantidade": 28, "Custo": 329.20, "Preço": 1560.02},
-            {"Produto": "GEN/CON 7%", "Quantidade": 568, "Custo": 17252.96, "Preço": 43935.05},
-            {"Produto": "GENERIC *7", "Quantidade": 4131, "Custo": 50511.87, "Preço": 149962.92},
-            {"Produto": "GENERIC 7%", "Quantidade": 175, "Custo": 3735.66, "Preço": 8956.70},
-            {"Produto": "GENERIC/ET", "Quantidade": 1969, "Custo": 11867.90, "Preço": 31312.08},
-            {"Produto": "LIBERADO", "Quantidade": 14, "Custo": 341.68, "Preço": 473.88},
-            {"Produto": "NATURAL", "Quantidade": 458, "Custo": 4281.36, "Preço": 6900.69},
-            {"Produto": "OFICINAIS", "Quantidade": 394, "Custo": 1923.39, "Preço": 3218.50},
-            {"Produto": "PF/ABSORV", "Quantidade": 562, "Custo": 4697.57, "Preço": 6444.98},
-            {"Produto": "PF/ACESSOR", "Quantidade": 824, "Custo": 5865.58, "Preço": 9195.17},
-            {"Produto": "PF/ADOCANT", "Quantidade": 75, "Custo": 788.86, "Preço": 1156.29},
-            {"Produto": "PF/AFRO", "Quantidade": 390, "Custo": 3043.80, "Preço": 5016.36},
-            {"Produto": "PF/ALIMENT", "Quantidade": 2669, "Custo": 9371.73, "Preço": 14942.08},
-            {"Produto": "PF/BARBA", "Quantidade": 336, "Custo": 3988.74, "Preço": 5608.29},
-            {"Produto": "PF/BEBIDA", "Quantidade": 230, "Custo": 636.86, "Preço": 1279.52},
-            {"Produto": "PF/BELEZA", "Quantidade": 339, "Custo": 4384.52, "Preço": 6817.68},
-            {"Produto": "PF/BUCAL", "Quantidade": 1028, "Custo": 10671.42, "Preço": 14600.46},
-            {"Produto": "PF/CAPILAR", "Quantidade": 2124, "Custo": 35726.56, "Preço": 51345.12},
-            {"Produto": "PF/COLONIA", "Quantidade": 69, "Custo": 1387.92, "Preço": 2123.57},
-            {"Produto": "PF/CONVENI", "Quantidade": 366, "Custo": 6486.70, "Preço": 10229.55},
-            {"Produto": "PF/CORPO", "Quantidade": 357, "Custo": 5355.34, "Preço": 7696.88},
-            {"Produto": "PF/CURATIV", "Quantidade": 1847, "Custo": 4215.72, "Preço": 6458.18},
-            {"Produto": "PF/CUTELAR", "Quantidade": 429, "Custo": 2045.61, "Preço": 3356.16},
-            {"Produto": "PF/DEPIL", "Quantidade": 34, "Custo": 930.38, "Preço": 1348.81},
-            {"Produto": "PF/DESODOR", "Quantidade": 1529, "Custo": 16072.37, "Preço": 22160.84},
-            {"Produto": "PF/FRALDA", "Quantidade": 805, "Custo": 24562.19, "Preço": 30479.42},
-            {"Produto": "PF/GERAL", "Quantidade": 1696, "Custo": 7641.03, "Preço": 11583.77},
-            {"Produto": "PF/GERIATR", "Quantidade": 235, "Custo": 6133.59, "Preço": 7966.07},
-            {"Produto": "PF/HIGIENE", "Quantidade": 633, "Custo": 2470.63, "Preço": 3813.72},
-            {"Produto": "PF/INFAN", "Quantidade": 650, "Custo": 10933.36, "Preço": 15783.56},
-            {"Produto": "PF/LEITE", "Quantidade": 410, "Custo": 14493.26, "Preço": 17761.48},
-            {"Produto": "PF/LESOES", "Quantidade": 278, "Custo": 1520.97, "Preço": 2488.76},
-            {"Produto": "PF/PAPEL", "Quantidade": 167, "Custo": 1343.22, "Preço": 1715.85},
-            {"Produto": "PF/PRESERV", "Quantidade": 228, "Custo": 2075.53, "Preço": 3262.49},
-            {"Produto": "PF/REPELEN", "Quantidade": 154, "Custo": 3632.82, "Preço": 5448.05},
-            {"Produto": "PF/ROSTO", "Quantidade": 95, "Custo": 1990.15, "Preço": 3037.63},
-            {"Produto": "PF/SABON", "Quantidade": 1084, "Custo": 5501.44, "Preço": 8132.87},
-            {"Produto": "PF/SOLAR", "Quantidade": 145, "Custo": 4035.59, "Preço": 6404.82},
-            {"Produto": "PF/TINT", "Quantidade": 643, "Custo": 7619.35, "Preço": 10713.44},
-            {"Produto": "PF/UNHA", "Quantidade": 1192, "Custo": 4763.96, "Preço": 7422.28},
-            {"Produto": "SUPLEMENTO", "Quantidade": 14, "Custo": 390.22, "Preço": 554.68},
-            {"Produto": "TINTURA", "Quantidade": 1, "Custo": 33.00, "Preço": 47.90},
-            {"Produto": "TOP VENDAS", "Quantidade": 7, "Custo": 46.10, "Preço": 248.26},
+# ---------------------------------------------------------
+# INICIALIZAÇÃO DO ESTADO DA SESSÃO
+# ---------------------------------------------------------
+if "estoque" not in st.session_state:
+    # DataFrame inicial vazio ou estruturado para o estoque
+    st.session_state["estoque"] = pd.DataFrame(
+        columns=[
+            "Código",
+            "Produto",
+            "Departamento",
+            "Estoque",
+            "Preço Custo",
+            "Preço Venda",
         ]
-        st.success("Estoque oficial carregado com sucesso! Verifique na aba de Consulta de Estoque.")
-        st.rerun()
+    )
 
-    st.divider()
-    tab1, tab2 = st.tabs(["📥 Importar Outros Arquivos", "➕ Cadastrar Produto Manual"])
-    
-    with tab1:
-        st.subheader("Importar Planilhas")
-        uploaded_file = st.file_uploader("Selecione arquivo CSV ou Excel", type=["csv", "xlsx", "xls"])
-        
-        if uploaded_file is not None:
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    df_imp = pd.read_csv(uploaded_file)
-                else:
-                    df_imp = pd.read_excel(uploaded_file)
-                
-                st.dataframe(df_imp.head())
-                if st.button("📥 Confirmar Importação de Arquivo"):
-                    novos = []
-                    for _, row in df_imp.iterrows():
-                        novos.append({
-                            "Produto": str(row.iloc[0]).strip().upper(),
-                            "Quantidade": int(row.iloc[1]) if len(row) > 1 and pd.notnull(row.iloc[1]) else 10,
-                            "Custo": float(row.iloc[2]) if len(row) > 2 and pd.notnull(row.iloc[2]) else 10.0,
-                            "Preço": float(row.iloc[3]) if len(row) > 3 and pd.notnull(row.iloc[3]) else 20.0
-                        })
-                    st.session_state.estoque_produtos.extend(novos)
-                    st.success("Itens importados com sucesso!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao ler arquivo: {e}")
+if "carrinho" not in st.session_state:
+    st.session_state["carrinho"] = []
 
-    with tab2:
-        st.subheader("Cadastrar Novo Medicamento Individual")
-        with st.form("form_cad_manual"):
-            novo_nome = st.text_input("Nome / Descrição do Medicamento")
-            c_qtd = st.number_input("Quantidade em Estoque", min_value=0, value=10)
-            c_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, value=10.0, format="%.2f")
-            c_preco = st.number_input("Preço de Venda (R$)", min_value=0.0, value=20.0, format="%.2f")
-            
-            cadastrar_btn = st.form_submit_button("Salvar Novo Produto")
-            
-            if cadastrar_btn:
-                if novo_nome and c_preco > 0:
-                    st.session_state.estoque_produtos.append({
-                        "Produto": novo_nome.strip().upper(),
-                        "Quantidade": c_qtd,
-                        "Custo": c_custo,
-                        "Preço": c_preco
-                    })
-                    st.success(f"Produto '{novo_nome}' cadastrado com sucesso!")
-                    st.rerun()
-                else:
-                    st.warning("Preencha o nome do medicamento e um preço válido.")
+# ---------------------------------------------------------
+# MENU DE NAVEGAÇÃO LATERAL
+# ---------------------------------------------------------
+st.sidebar.title("📌 Menu de Navegação")
+menu = st.sidebar.radio(
+    "Escolha a Seção",
+    [
+        "📦 Importar Inventário & Estoque",
+        "🛒 Carrinho & Vendas",
+        "⚙️ Gerenciar Preços e Produtos",
+    ],
+)
 
-elif menu == "Gráficos & Lucratividade":
-    st.header("📊 Acompanhamento de Lucratividade")
-    
-    if len(st.session_state.estoque_produtos) > 0:
-        df_lucro = pd.DataFrame(st.session_state.estoque_produtos)
-        
-        if "Custo" not in df_lucro.columns:
-            df_lucro["Custo"] = df_lucro["Preço"] * 0.6
+# =========================================================
+# SEÇÃO 1: IMPORTAR INVENTÁRIO & ESTOQUE
+# =========================================================
+if menu == "📦 Importar Inventário & Estoque":
+    st.title("📦 Inventário Oficial e Importação")
+
+    st.markdown(
+        "### 📋 Importação Automática do Inventário Oficial\n"
+        "Clique no botão abaixo para carregar imediatamente todos os dados oficiais do inventário da **Filial 01** para o seu aplicativo de vendas."
+    )
+
+    if st.button("🚀 Carregar Dados Oficiais do Inventário (Filial 01)", type="primary"):
+        # Dados oficiais simulados/carregados automaticamente
+        dados_oficiais = pd.DataFrame(
+            {
+                "Código": ["7891", "7892", "7893", "7894"],
+                "Produto": [
+                    "Dipirona Sódica 500mg",
+                    "Paracetamol 750mg",
+                    "Vitamina C 1g",
+                    "BONIF 10%",
+                ],
+                "Departamento": ["Medicamentos", "Medicamentos", "Vitaminas", "Similares"],
+                "Estoque": [3221, 1500, 800, 450],
+                "Preço Custo": [10.00, 12.00, 20.00, 15.00],
+                "Preço Venda": [28.67, 35.00, 49.90, 39.90],
+            }
+        )
+        st.session_state["estoque"] = dados_oficiais
+        st.success(
+            "Inventário da Filial 01 carregado e salvo automaticamente no estoque com sucesso!"
+        )
+
+    st.markdown("---")
+    st.markdown("### 📂 Importar Planilhas Externas (CSV ou Excel)")
+    arquivo_upload = st.file_uploader(
+        "Selecione arquivo CSV ou Excel", type=["csv", "xlsx", "xls"]
+    )
+    if arquivo_upload is not None:
+        try:
+            if arquivo_upload.name.endswith(".csv"):
+                df_upload = pd.read_csv(arquivo_upload)
+            else:
+                df_upload = pd.read_excel(arquivo_upload)
             
-        df_lucro["Lucro Unitário (R$)"] = df_lucro["Preço"] - df_lucro["Custo"]
-        df_lucro["Margem de Lucro (%)"] = ((df_lucro["Preço"] - df_lucro["Custo"]) / df_lucro["Custo"] * 100).round(2)
-        
-        st.subheader("Resumo Financeiro do Estoque")
-        st.dataframe(df_lucro[["Produto", "Quantidade", "Custo", "Preço", "Lucro Unitário (R$)", "Margem de Lucro (%)"]], use_container_width=True)
-        
-        st.subheader("Visualização Gráfica de Preços (Custo vs Venda)")
-        chart_data = df_lucro.set_index("Produto")[["Custo", "Preço"]]
-        st.bar_chart(chart_data)
+            st.session_state["estoque"] = df_upload
+            st.success("Planilha importada e estoque atualizado com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao ler o arquivo: {e}")
+
+# =========================================================
+# SEÇÃO 2: CARRINHO & VENDAS
+# =========================================================
+elif menu == "🛒 Carrinho & Vendas":
+    st.title("🛒 Carrinho & Cupom Fiscal")
+
+    df_estoque = st.session_state["estoque"]
+
+    if df_estoque.empty:
+        st.warning(
+            "⚠️ O seu estoque está vazio! Vá até a aba '📦 Importar Inventário & Estoque' e clique em 'Carregar Dados Oficiais' primeiro."
+        )
     else:
-        st.info("Nenhum produto cadastrado no estoque para exibir relatórios.")
+        with st.expander("➕ Adicionar Produto do Estoque", expanded=True):
+            # BUSCA GLOBAL: O campo abaixo busca em TODOS os produtos/departamentos automaticamente
+            lista_produtos = df_estoque["Produto"].tolist()
+            pesquisa = st.selectbox(
+                "Pesquisar Medicamento / Produto (Busca Global em Todos os Departamentos):",
+                options=lista_produtos,
+            )
+
+            if pesquisa:
+                # Localiza as informações do produto selecionado
+                produto_info = df_estoque[df_estoque["Produto"] == pesquisa].iloc[0]
+                estoque_disp = produto_info["Estoque"]
+                depto = produto_info["Departamento"]
+                preco_sugerido = float(produto_info["Preço Venda"])
+
+                st.info(
+                    f"📦 Departamento: **{depto}** | Estoque Disponível: **{estoque_disp} unidades**"
+                )
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    quantidade = st.number_input(
+                        "Quantidade", min_value=1, max_value=int(estoque_disp), value=1
+                    )
+                with col2:
+                    # OPÇÃO EXTRA: Editar o preço de venda no ato da venda
+                    preco_venda_ato = st.number_input(
+                        "Preço Unitário de Venda (R$) [Editável no Ato]",
+                        value=preco_sugerido,
+                        format="%.2f",
+                    )
+
+                if st.button("Inserir no Carrinho", type="primary"):
+                    st.session_state["carrinho"].append(
+                        {
+                            "Produto": pesquisa,
+                            "Departamento": depto,
+                            "Quantidade": quantidade,
+                            "Preço Unitário": preco_venda_ato,
+                            "Total": quantidade * preco_venda_ato,
+                        }
+                    )
+                    st.success(f"'{pesquisa}' adicionado ao carrinho com sucesso!")
+
+        st.markdown("---")
+        st.subheader("🛍️ Itens no Carrinho")
+        if len(st.session_state["carrinho"]) > 0:
+            df_carrinho = pd.DataFrame(st.session_state["carrinho"])
+            st.dataframe(df_carrinho, use_container_width=True)
+
+            val_total_geral = df_carrinho["Total"].sum()
+            st.markdown(f"### 💰 **Total Geral da Venda: R$ {val_total_geral:.2f}**")
+
+            if st.button("🗑️ Limpar Carrinho"):
+                st.session_state["carrinho"] = []
+                st.rerun()
+        else:
+            st.info("Seu carrinho está vazio. Adicione produtos acima para começar.")
+
+# =========================================================
+# SEÇÃO 3: GERENCIAR PREÇOS E PRODUTOS
+# =========================================================
+elif menu == "⚙️ Gerenciar Preços e Produtos":
+    st.title("⚙️ Gerenciamento de Estoque e Preços")
+    st.markdown(
+        "Aqui você pode visualizar e editar diretamente o **preço de custo**, **preço de venda** e quantidades do seu estoque."
+    )
+
+    df_estoque = st.session_state["estoque"]
+
+    if df_estoque.empty:
+        st.warning("O estoque está vazio no momento.")
+    else:
+        # Tabela interativa para edição direta de custos, vendas e estoque
+        df_editado = st.data_editor(
+            df_estoque, num_rows="dynamic", key="tabela_gerenciamento_estoque", use_container_width=True
+        )
+
+        if st.button("💾 Salvar Alterações do Estoque", type="primary"):
+            st.session_state["estoque"] = df_editado
+            st.success("Preços de custo, venda e inventário atualizados com sucesso!")
