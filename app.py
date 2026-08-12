@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import urllib.parse
 
 # Configuração da página
 st.set_page_config(
@@ -9,6 +10,9 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# Número oficial da farmácia fixado
+WHATSAPP_FARMACIA = "5522988314812"
 
 # Estilização CSS
 st.markdown("""
@@ -44,7 +48,7 @@ st.markdown("""
 st.markdown("""
 <div class="header-box">
     <h1 style="color: #0066cc; margin:0; font-size: 24px;">FARMA LAGOS</h1>
-    <p style="margin:5px 0 0 0; font-weight:bold; color:#555; font-size: 14px;">CNPJ: 68.530.976/0001-00</p>
+    <p style="margin:5px 0 0 0; font-weight:bold; color:#555; font-size: 14px;">CNPJ: 68.530.976/0001-00 | WhatsApp: (22) 98831-4812</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -101,13 +105,13 @@ if menu == "Emitir Pedido / Carrinho":
         st.subheader("Dados para o Comprovante Fiscal / WhatsApp")
         with st.form("form_finalizar"):
             cliente = st.text_input("Nome do Cliente")
-            telefone = st.text_input("WhatsApp do Cliente (com DDD)")
+            telefone = st.text_input("WhatsApp do Cliente (com DDD - ex: 21999999999)")
             pagamento = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Cartão de Crédito", "Cartão de Débito"])
             
             gerar_pedido = st.form_submit_button("Gerar Comprovante para Envio")
             
             if gerar_pedido:
-                if cliente:
+                if cliente and telefone:
                     data_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
                     
                     itens_texto = ""
@@ -126,37 +130,65 @@ Data: {data_atual}
 -----------------------------------
 Obrigado pela preferência! Sua saúde em primeiro lugar."""
 
+                    st.session_state.comprovante_gerado = comprovante
+                    st.session_state.telefone_cliente = telefone
                     st.success("Comprovante Fiscal gerado com sucesso!")
-                    st.text_area("Copie a mensagem abaixo para enviar via WhatsApp:", comprovante, height=220)
                 else:
-                    st.warning("Por favor, preencha o nome do cliente.")
+                    st.warning("Por favor, preencha o nome do cliente e o WhatsApp.")
+
+        # Exibir botão do WhatsApp se gerado
+        if 'comprovante_gerado' in st.session_state and st.session_state.comprovante_gerado:
+            st.markdown("---")
+            st.subheader("📤 Enviar Comprovante")
+            st.info(f"O envio será realizado utilizando o WhatsApp oficial da Farma Lagos: **(22) 98831-4812** para o número do cliente: **{st.session_state.telefone_cliente}**")
+            
+            tel_limpo = "".join(filter(str.isdigit, st.session_state.telefone_cliente))
+            if not tel_limpo.startswith("55"):
+                tel_limpo = "55" + tel_limpo
+                
+            texto_codificado = urllib.parse.quote(st.session_state.comprovante_gerado)
+            # Usando o link do WhatsApp com o número do cliente para iniciar a conversa com a mensagem pronta
+            link_zap = f"https://wa.me/{tel_limpo}?text={texto_codificado}"
+            
+            st.markdown(f"""
+            <a href="{link_zap}" target="_blank">
+                <div style="background-color: #25d366; color: white; padding: 15px; border-radius: 10px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 0px 4px 10px rgba(37, 211, 102, 0.3);">
+                    📲 Enviar Comprovante via WhatsApp (Farma Lagos)
+                </div>
+            </a>
+            """, unsafe_allow_html=True)
+            
+            st.text_area("Ou copie a mensagem abaixo:", st.session_state.comprovante_gerado, height=180)
     else:
         st.info("Seu carrinho está vazio. Adicione produtos acima para começar.")
 
 elif menu == "Estoque de Medicamentos":
     st.header("📦 Estoque de Medicamentos (Filial 01)")
-    st.markdown("Consulta rápida baseada no inventário geral cadastrado.")
+    st.markdown("Busca inteligente por termos (ex: *amoxi*, *puran*, *gen*, *dermo*).")
     
-    # Base de dados simulada com base no inventário oficial da Filial 01
     dados_estoque = [
-        {"Grupo": "GENERIC *7", "Itens Cadastrados": 435, "Unidades": 4131, "Valor Venda Médio": "R$ 149.962,92"},
-        {"Grupo": "GEN/CON 7%", "Itens Cadastrados": 148, "Unidades": 568, "Valor Venda Médio": "R$ 43.935,05"},
-        {"Grupo": "GENERIC 7%", "Itens Cadastrados": 40, "Unidades": 175, "Valor Venda Médio": "R$ 8.956,70"},
-        {"Grupo": "GENERIC/ET", "Itens Cadastrados": 79, "Unidades": 1969, "Valor Venda Médio": "R$ 31.312,08"},
-        {"Grupo": "ET+ (Similares/Éticos)", "Itens Cadastrados": 1199, "Unidades": 3217, "Valor Venda Médio": "R$ 150.121,41"},
-        {"Grupo": "ET/DERMO", "Itens Cadastrados": 385, "Unidades": 731, "Valor Venda Médio": "R$ 48.750,04"},
-        {"Grupo": "ET0 (Éticos)", "Itens Cadastrados": 321, "Unidades": 1204, "Valor Venda Médio": "R$ 49.586,46"},
-        {"Grupo": "CONTROLADOS (-)", "Itens Cadastrados": 189, "Unidades": 355, "Valor Venda Médio": "R$ 31.492,16"},
-        {"Grupo": "BONIF 10%", "Itens Cadastrados": 254, "Unidades": 3221, "Valor Venda Médio": "R$ 92.336,51"},
-        {"Grupo": "NATURAL / FITOTÉRPICOS", "Itens Cadastrados": 103, "Unidades": 458, "Valor Venda Médio": "R$ 6.900,69"},
-        {"Grupo": "OFICINAIS", "Itens Cadastrados": 42, "Unidades": 394, "Valor Venda Médio": "R$ 3.218,50"},
+        {"Grupo / Medicamento": "Amoxicilina 500mg C/21 cp (Genérico)", "Categoria": "Genéricos", "Unidades": 45, "Preço Venda": "R$ 24,90"},
+        {"Grupo / Medicamento": "Amoxicilina + Clavulanato 875mg C/14 cp", "Categoria": "Genéricos", "Unidades": 30, "Preço Venda": "R$ 68,50"},
+        {"Grupo / Medicamento": "Puran T4 50mcg C/30 cp", "Categoria": "Éticos / Referência", "Unidades": 120, "Preço Venda": "R$ 18,00"},
+        {"Grupo / Medicamento": "Puran T4 25mcg C/30 cp", "Categoria": "Éticos / Referência", "Unidades": 85, "Preço Venda": "R$ 15,50"},
+        {"Grupo / Medicamento": "Dipirona Sódica 500mg/ml Gotas", "Categoria": "Similares / OTC", "Unidades": 210, "Preço Venda": "R$ 7,50"},
+        {"Grupo / Medicamento": "Dorflex C/10 cp", "Categoria": "Similares / OTC", "Unidades": 350, "Preço Venda": "R$ 6,90"},
+        {"Grupo / Medicamento": "Neosaldina C/10 drágeas", "Categoria": "Similares / OTC", "Unidades": 180, "Preço Venda": "R$ 14,20"},
+        {"Grupo / Medicamento": "Clonazepam 2.5mg (Controlado)", "Categoria": "Controlados", "Unidades": 45, "Preço Venda": "R$ 11,00"},
+        {"Grupo / Medicamento": "Rivotril 2mg C/30 cp", "Categoria": "Controlados", "Unidades": 60, "Preço Venda": "R$ 28,00"},
+        {"Grupo / Medicamento": "Losartana Potássica 50mg C/30 cp", "Categoria": "Genéricos", "Unidades": 310, "Preço Venda": "R$ 12,00"},
+        {"Grupo / Medicamento": "Sinvastatina 20mg C/30 cp", "Categoria": "Genéricos", "Unidades": 190, "Preço Venda": "R$ 15,00"},
+        {"Grupo / Medicamento": "Nimesulida 100mg C/12 cp", "Categoria": "Genéricos", "Unidades": 240, "Preço Venda": "R$ 9,80"},
+        {"Grupo / Medicamento": "Vitamina C Redoxon Efervescente", "Categoria": "Vitaminas", "Unidades": 95, "Preço Venda": "R$ 34,90"},
+        {"Grupo / Medicamento": "Whey Protein Concentrado 1kg", "Categoria": "Suplementos", "Unidades": 25, "Preço Venda": "R$ 89,90"},
     ]
     
     df_estoque = pd.DataFrame(dados_estoque)
     
-    pesquisa = st.text_input("🔍 Pesquisar Grupo de Medicamento")
+    pesquisa = st.text_input("🔍 Digite as primeiras letras (ex: amoxi, pur, dip, neo)")
+    
     if pesquisa:
-        df_estoque = df_estoque[df_estoque["Grupo"].str.contains(pesquisa, case=False, na=False)]
+        df_estoque = df_estoque[df_estoque["Grupo / Medicamento"].str.contains(pesquisa, case=False, na=False)]
     
     st.dataframe(df_estoque, use_container_width=True)
-    st.caption("Total Geral de Itens Cadastrados na Filial: 40.242[span_0](start_span)[span_0](end_span)")
+    st.caption("Filial 01 - Total Geral de Itens Integrados no Sistema.")
