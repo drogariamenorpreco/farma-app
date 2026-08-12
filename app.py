@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Número oficial da farmácia fixado
+# Número oficial da farmácia
 WHATSAPP_FARMACIA = "5522988314812"
 
 # Estilização CSS
@@ -52,6 +52,25 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Base de Dados de Produtos / Estoque com Preços
+if 'estoque_produtos' not in st.session_state:
+    st.session_state.estoque_produtos = [
+        {"Produto": "Amoxicilina 500mg C/21 cp (Genérico)", "Preço": 24.90},
+        {"Produto": "Amoxicilina + Clavulanato 875mg C/14 cp", "Preço": 68.50},
+        {"Produto": "Puran T4 50mcg C/30 cp", "Preço": 18.00},
+        {"Produto": "Puran T4 25mcg C/30 cp", "Preço": 15.50},
+        {"Produto": "Dipirona Sódica 500mg/ml Gotas", "Preço": 7.50},
+        {"Produto": "Dorflex C/10 cp", "Preço": 6.90},
+        {"Produto": "Neosaldina C/10 drágeas", "Preço": 14.20},
+        {"Produto": "Clonazepam 2.5mg (Controlado)", "Preço": 11.00},
+        {"Produto": "Rivotril 2mg C/30 cp", "Preço": 28.00},
+        {"Produto": "Losartana Potássica 50mg C/30 cp", "Preço": 12.00},
+        {"Produto": "Sinvastatina 20mg C/30 cp", "Preço": 15.00},
+        {"Produto": "Nimesulida 100mg C/12 cp", "Preço": 9.80},
+        {"Produto": "Vitamina C Redoxon Efervescente", "Preço": 34.90},
+        {"Produto": "Whey Protein Concentrado 1kg", "Preço": 89.90},
+    ]
+
 # Inicializar Carrinho de Compras na Sessão
 if 'carrinho' not in st.session_state:
     st.session_state.carrinho = []
@@ -62,29 +81,37 @@ menu = st.sidebar.radio("Navegação", ["Emitir Pedido / Carrinho", "Estoque de 
 if menu == "Emitir Pedido / Carrinho":
     st.header("🛒 Carrinho & Pedido")
     
-    # Seção para Adicionar Produtos ao Carrinho
-    with st.expander("➕ Adicionar Produto ao Carrinho", expanded=True):
+    # Seção para Adicionar Produtos ao Carrinho com Busca Inteligente
+    with st.expander("➕ Adicionar Produto do Estoque", expanded=True):
+        
+        # Criar lista de nomes para busca
+        lista_nomes = [p["Produto"] for p in st.session_state.estoque_produtos]
+        
+        selected_prod = st.selectbox("Pesquisar Medicamento (Digite as iniciais):", lista_nomes)
+        
+        # Achar o preço correspondente
+        preco_sugerido = next((p["Preço"] for p in st.session_state.estoque_produtos if p["Produto"] == selected_prod), 0.0)
+        
         with st.form("form_add_produto"):
-            nome_prod = st.text_input("Nome do Medicamento / Produto")
             col1, col2 = st.columns(2)
             with col1:
                 qtd_prod = st.number_input("Quantidade", min_value=1, value=1, step=1)
             with col2:
-                preco_prod = st.number_input("Preço Unitário (R$)", min_value=0.0, value=0.0, format="%.2f")
+                preco_prod = st.number_input("Preço Unitário (R$)", min_value=0.0, value=float(preco_sugerido), format="%.2f")
             
             add_btn = st.form_submit_button("Inserir no Carrinho")
             if add_btn:
-                if nome_prod and preco_prod > 0:
+                if selected_prod and preco_prod > 0:
                     st.session_state.carrinho.append({
-                        "Produto": nome_prod,
+                        "Produto": selected_prod,
                         "Qtd": qtd_prod,
                         "Preço Unit.": preco_prod,
                         "Subtotal": qtd_prod * preco_prod
                     })
-                    st.success(f"{nome_prod} adicionado!")
+                    st.success(f"{selected_prod} adicionado!")
                     st.rerun()
                 else:
-                    st.warning("Informe o nome e um preço válido para o produto.")
+                    st.warning("Selecione um produto e informe um preço válido.")
 
     # Exibição do Carrinho
     if len(st.session_state.carrinho) > 0:
@@ -102,10 +129,10 @@ if menu == "Emitir Pedido / Carrinho":
         st.divider()
         
         # Dados do Cliente para Fechamento
-        st.subheader("Dados para o Comprovante Fiscal / WhatsApp")
+        st.subheader("Dados para o Comprovante / WhatsApp")
         with st.form("form_finalizar"):
             cliente = st.text_input("Nome do Cliente")
-            telefone = st.text_input("WhatsApp do Cliente (com DDD - ex: 21999999999)")
+            telefone = st.text_input("WhatsApp do Cliente (com DDD - ex: 22988887777)")
             pagamento = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Cartão de Crédito", "Cartão de Débito"])
             
             gerar_pedido = st.form_submit_button("Gerar Comprovante para Envio")
@@ -132,63 +159,41 @@ Obrigado pela preferência! Sua saúde em primeiro lugar."""
 
                     st.session_state.comprovante_gerado = comprovante
                     st.session_state.telefone_cliente = telefone
-                    st.success("Comprovante Fiscal gerado com sucesso!")
+                    st.success("Comprovante gerado com sucesso!")
                 else:
-                    st.warning("Por favor, preencha o nome do cliente e o WhatsApp.")
+                    st.warning("Por favor, preencha o nome e o WhatsApp do cliente.")
 
         # Exibir botão do WhatsApp se gerado
         if 'comprovante_gerado' in st.session_state and st.session_state.comprovante_gerado:
             st.markdown("---")
-            st.subheader("📤 Enviar Comprovante")
-            st.info(f"O envio será realizado utilizando o WhatsApp oficial da Farma Lagos: **(22) 98831-4812** para o número do cliente: **{st.session_state.telefone_cliente}**")
+            st.subheader("📤 Envio via WhatsApp")
             
             tel_limpo = "".join(filter(str.isdigit, st.session_state.telefone_cliente))
             if not tel_limpo.startswith("55"):
                 tel_limpo = "55" + tel_limpo
                 
             texto_codificado = urllib.parse.quote(st.session_state.comprovante_gerado)
-            # Usando o link do WhatsApp com o número do cliente para iniciar a conversa com a mensagem pronta
             link_zap = f"https://wa.me/{tel_limpo}?text={texto_codificado}"
             
             st.markdown(f"""
             <a href="{link_zap}" target="_blank">
-                <div style="background-color: #25d366; color: white; padding: 15px; border-radius: 10px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 0px 4px 10px rgba(37, 211, 102, 0.3);">
-                    📲 Enviar Comprovante via WhatsApp (Farma Lagos)
+                <div style="background-color: #25d366; color: white; padding: 16px; border-radius: 10px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 0px 4px 10px rgba(37, 211, 102, 0.4);">
+                    📱 CLIQUE AQUI PARA ENVIAR NO WHATSAPP DO CLIENTE
                 </div>
             </a>
             """, unsafe_allow_html=True)
             
-            st.text_area("Ou copie a mensagem abaixo:", st.session_state.comprovante_gerado, height=180)
+            st.text_area("Ou copie a mensagem caso prefira:", st.session_state.comprovante_gerado, height=180)
     else:
         st.info("Seu carrinho está vazio. Adicione produtos acima para começar.")
 
 elif menu == "Estoque de Medicamentos":
-    st.header("📦 Estoque de Medicamentos (Filial 01)")
-    st.markdown("Busca inteligente por termos (ex: *amoxi*, *puran*, *gen*, *dermo*).")
+    st.header("📦 Consulta de Estoque (Farma Lagos)")
     
-    dados_estoque = [
-        {"Grupo / Medicamento": "Amoxicilina 500mg C/21 cp (Genérico)", "Categoria": "Genéricos", "Unidades": 45, "Preço Venda": "R$ 24,90"},
-        {"Grupo / Medicamento": "Amoxicilina + Clavulanato 875mg C/14 cp", "Categoria": "Genéricos", "Unidades": 30, "Preço Venda": "R$ 68,50"},
-        {"Grupo / Medicamento": "Puran T4 50mcg C/30 cp", "Categoria": "Éticos / Referência", "Unidades": 120, "Preço Venda": "R$ 18,00"},
-        {"Grupo / Medicamento": "Puran T4 25mcg C/30 cp", "Categoria": "Éticos / Referência", "Unidades": 85, "Preço Venda": "R$ 15,50"},
-        {"Grupo / Medicamento": "Dipirona Sódica 500mg/ml Gotas", "Categoria": "Similares / OTC", "Unidades": 210, "Preço Venda": "R$ 7,50"},
-        {"Grupo / Medicamento": "Dorflex C/10 cp", "Categoria": "Similares / OTC", "Unidades": 350, "Preço Venda": "R$ 6,90"},
-        {"Grupo / Medicamento": "Neosaldina C/10 drágeas", "Categoria": "Similares / OTC", "Unidades": 180, "Preço Venda": "R$ 14,20"},
-        {"Grupo / Medicamento": "Clonazepam 2.5mg (Controlado)", "Categoria": "Controlados", "Unidades": 45, "Preço Venda": "R$ 11,00"},
-        {"Grupo / Medicamento": "Rivotril 2mg C/30 cp", "Categoria": "Controlados", "Unidades": 60, "Preço Venda": "R$ 28,00"},
-        {"Grupo / Medicamento": "Losartana Potássica 50mg C/30 cp", "Categoria": "Genéricos", "Unidades": 310, "Preço Venda": "R$ 12,00"},
-        {"Grupo / Medicamento": "Sinvastatina 20mg C/30 cp", "Categoria": "Genéricos", "Unidades": 190, "Preço Venda": "R$ 15,00"},
-        {"Grupo / Medicamento": "Nimesulida 100mg C/12 cp", "Categoria": "Genéricos", "Unidades": 240, "Preço Venda": "R$ 9,80"},
-        {"Grupo / Medicamento": "Vitamina C Redoxon Efervescente", "Categoria": "Vitaminas", "Unidades": 95, "Preço Venda": "R$ 34,90"},
-        {"Grupo / Medicamento": "Whey Protein Concentrado 1kg", "Categoria": "Suplementos", "Unidades": 25, "Preço Venda": "R$ 89,90"},
-    ]
-    
-    df_estoque = pd.DataFrame(dados_estoque)
-    
-    pesquisa = st.text_input("🔍 Digite as primeiras letras (ex: amoxi, pur, dip, neo)")
+    df_estoque = pd.DataFrame(st.session_state.estoque_produtos)
+    pesquisa = st.text_input("🔍 Pesquisar no estoque:")
     
     if pesquisa:
-        df_estoque = df_estoque[df_estoque["Grupo / Medicamento"].str.contains(pesquisa, case=False, na=False)]
+        df_estoque = df_estoque[df_estoque["Produto"].str.contains(pesquisa, case=False, na=False)]
     
     st.dataframe(df_estoque, use_container_width=True)
-    st.caption("Filial 01 - Total Geral de Itens Integrados no Sistema.")
