@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import streamlit as st
 
@@ -6,21 +7,34 @@ st.set_page_config(
     page_title="Gestão de Vendas - Farmácia", layout="wide", initial_sidebar_state="expanded"
 )
 
+# Arquivo local para persistência de dados (salva para não perder ao sair)
+ARQUIVO_BANCO = "estoque_farmacia.csv"
+
 # ---------------------------------------------------------
-# INICIALIZAÇÃO DO ESTADO DA SESSÃO
+# FUNÇÕES DE PERSISTÊNCIA (SALVAR/CARREGAR AUTOMÁTICO)
 # ---------------------------------------------------------
+def carregar_dados():
+    if os.path.exists(ARQUIVO_BANCO):
+        return pd.read_csv(ARQUIVO_BANCO)
+    else:
+        # Retorna DataFrame vazio estruturado caso não exista arquivo salvo
+        return pd.DataFrame(
+            columns=[
+                "Código",
+                "Produto",
+                "Departamento",
+                "Estoque",
+                "Preço Custo",
+                "Preço Venda",
+            ]
+        )
+
+def salvar_dados(df):
+    df.to_csv(ARQUIVO_BANCO, index=False)
+
+# Inicializar o session_state com os dados salvos no disco
 if "estoque" not in st.session_state:
-    # DataFrame inicial vazio ou estruturado para o estoque
-    st.session_state["estoque"] = pd.DataFrame(
-        columns=[
-            "Código",
-            "Produto",
-            "Departamento",
-            "Estoque",
-            "Preço Custo",
-            "Preço Venda",
-        ]
-    )
+    st.session_state["estoque"] = carregar_dados()
 
 if "carrinho" not in st.session_state:
     st.session_state["carrinho"] = []
@@ -46,11 +60,10 @@ if menu == "📦 Importar Inventário & Estoque":
 
     st.markdown(
         "### 📋 Importação Automática do Inventário Oficial\n"
-        "Clique no botão abaixo para carregar imediatamente todos os dados oficiais do inventário da **Filial 01** para o seu aplicativo de vendas."
+        "Clique no botão abaixo para carregar imediatamente e **salvar permanentemente** todos os dados oficiais do inventário da **Filial 01**."
     )
 
-    if st.button("🚀 Carregar Dados Oficiais do Inventário (Filial 01)", type="primary"):
-        # Dados oficiais simulados/carregados automaticamente
+    if st.button("🚀 Carregar e Salvar Dados Oficiais (Filial 01)", type="primary"):
         dados_oficiais = pd.DataFrame(
             {
                 "Código": ["7891", "7892", "7893", "7894"],
@@ -67,9 +80,8 @@ if menu == "📦 Importar Inventário & Estoque":
             }
         )
         st.session_state["estoque"] = dados_oficiais
-        st.success(
-            "Inventário da Filial 01 carregado e salvo automaticamente no estoque com sucesso!"
-        )
+        salvar_dados(dados_oficiais)  # Salva definitivamente no disco
+        st.success("Inventário oficial carregado e salvo permanentemente com sucesso!")
 
     st.markdown("---")
     st.markdown("### 📂 Importar Planilhas Externas (CSV ou Excel)")
@@ -84,7 +96,8 @@ if menu == "📦 Importar Inventário & Estoque":
                 df_upload = pd.read_excel(arquivo_upload)
             
             st.session_state["estoque"] = df_upload
-            st.success("Planilha importada e estoque atualizado com sucesso!")
+            salvar_dados(df_upload)  # Salva definitivamente no disco
+            st.success("Planilha importada e salva permanentemente com sucesso!")
         except Exception as e:
             st.error(f"Erro ao ler o arquivo: {e}")
 
@@ -98,19 +111,21 @@ elif menu == "🛒 Carrinho & Vendas":
 
     if df_estoque.empty:
         st.warning(
-            "⚠️ O seu estoque está vazio! Vá até a aba '📦 Importar Inventário & Estoque' e clique em 'Carregar Dados Oficiais' primeiro."
+            "⚠️ O seu estoque está vazio! Vá até a aba '📦 Importar Inventário & Estocar' e carregue os dados oficiais."
         )
     else:
         with st.expander("➕ Adicionar Produto do Estoque", expanded=True):
-            # BUSCA GLOBAL: O campo abaixo busca em TODOS os produtos/departamentos automaticamente
+            st.markdown("🔍 **Digite o nome do produto abaixo (o sistema busca e sugere em tempo real):**")
+            
+            # Campo de busca otimizado com sugestões automáticas baseadas na digitação
             lista_produtos = df_estoque["Produto"].tolist()
             pesquisa = st.selectbox(
-                "Pesquisar Medicamento / Produto (Busca Global em Todos os Departamentos):",
-                options=lista_produtos,
+                "Pesquisa de produtos:",
+                options=["Selecione ou digite para buscar..."] + lista_produtos,
+                label_visibility="collapsed"
             )
 
-            if pesquisa:
-                # Localiza as informações do produto selecionado
+            if pesquisa and pesquisa != "Selecione ou digite para buscar...":
                 produto_info = df_estoque[df_estoque["Produto"] == pesquisa].iloc[0]
                 estoque_disp = produto_info["Estoque"]
                 depto = produto_info["Departamento"]
@@ -126,7 +141,7 @@ elif menu == "🛒 Carrinho & Vendas":
                         "Quantidade", min_value=1, max_value=int(estoque_disp), value=1
                     )
                 with col2:
-                    # OPÇÃO EXTRA: Editar o preço de venda no ato da venda
+                    # Preço de venda editável no ato da venda
                     preco_venda_ato = st.number_input(
                         "Preço Unitário de Venda (R$) [Editável no Ato]",
                         value=preco_sugerido,
@@ -166,7 +181,7 @@ elif menu == "🛒 Carrinho & Vendas":
 elif menu == "⚙️ Gerenciar Preços e Produtos":
     st.title("⚙️ Gerenciamento de Estoque e Preços")
     st.markdown(
-        "Aqui você pode visualizar e editar diretamente o **preço de custo**, **preço de venda** e quantidades do seu estoque."
+        "Edite diretamente o preço de custo, preço de venda ou quantidades. As alterações ficam salvas permanentemente."
     )
 
     df_estoque = st.session_state["estoque"]
@@ -174,11 +189,11 @@ elif menu == "⚙️ Gerenciar Preços e Produtos":
     if df_estoque.empty:
         st.warning("O estoque está vazio no momento.")
     else:
-        # Tabela interativa para edição direta de custos, vendas e estoque
         df_editado = st.data_editor(
             df_estoque, num_rows="dynamic", key="tabela_gerenciamento_estoque", use_container_width=True
         )
 
         if st.button("💾 Salvar Alterações do Estoque", type="primary"):
             st.session_state["estoque"] = df_editado
-            st.success("Preços de custo, venda e inventário atualizados com sucesso!")
+            salvar_dados(df_editado)  # Salva permanentemente no arquivo local
+            st.success("Alterações salvas permanentemente no estoque com sucesso!")
