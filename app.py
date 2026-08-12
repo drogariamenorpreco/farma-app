@@ -17,7 +17,6 @@ def carregar_dados():
     if os.path.exists(ARQUIVO_BANCO):
         return pd.read_csv(ARQUIVO_BANCO)
     else:
-        # Retorna DataFrame vazio estruturado caso não exista arquivo salvo
         return pd.DataFrame(
             columns=[
                 "Código",
@@ -80,7 +79,7 @@ if menu == "📦 Importar Inventário & Estoque":
             }
         )
         st.session_state["estoque"] = dados_oficiais
-        salvar_dados(dados_oficiais)  # Salva definitivamente no disco
+        salvar_dados(dados_oficiais)
         st.success("Inventário oficial carregado e salvo permanentemente com sucesso!")
 
     st.markdown("---")
@@ -96,7 +95,7 @@ if menu == "📦 Importar Inventário & Estoque":
                 df_upload = pd.read_excel(arquivo_upload)
             
             st.session_state["estoque"] = df_upload
-            salvar_dados(df_upload)  # Salva definitivamente no disco
+            salvar_dados(df_upload)
             st.success("Planilha importada e salva permanentemente com sucesso!")
         except Exception as e:
             st.error(f"Erro ao ler o arquivo: {e}")
@@ -111,54 +110,62 @@ elif menu == "🛒 Carrinho & Vendas":
 
     if df_estoque.empty:
         st.warning(
-            "⚠️ O seu estoque está vazio! Vá até a aba '📦 Importar Inventário & Estocar' e carregue os dados oficiais."
+            "⚠️ O seu estoque está vazio! Vá até a aba '📦 Importar Inventário & Estoque' e carregue os dados oficiais."
         )
     else:
         with st.expander("➕ Adicionar Produto do Estoque", expanded=True):
-            st.markdown("🔍 **Digite o nome do produto abaixo (o sistema busca e sugere em tempo real):**")
             
-            # Campo de busca otimizado com sugestões automáticas baseadas na digitação
-            lista_produtos = df_estoque["Produto"].tolist()
-            pesquisa = st.selectbox(
-                "Pesquisa de produtos:",
-                options=["Selecione ou digite para buscar..."] + lista_produtos,
-                label_visibility="collapsed"
-            )
+            # 🔍 LUPA DE PESQUISA LIVRE POR DIGITAÇÃO
+            termo_busca = st.text_input("🔍 Digite o nome do produto para pesquisar:", placeholder="Ex: Dipirona, Paracetamol, Vitamina...")
 
-            if pesquisa and pesquisa != "Selecione ou digite para buscar...":
-                produto_info = df_estoque[df_estoque["Produto"] == pesquisa].iloc[0]
-                estoque_disp = produto_info["Estoque"]
-                depto = produto_info["Departamento"]
-                preco_sugerido = float(produto_info["Preço Venda"])
+            if termo_busca:
+                # Filtra os produtos que contêm o texto digitado (ignorando maiúsculas/minúsculas)
+                df_filtrado = df_estoque[df_estoque["Produto"].str.contains(termo_busca, case=False, na=False)]
 
-                st.info(
-                    f"📦 Departamento: **{depto}** | Estoque Disponível: **{estoque_disp} unidades**"
-                )
+                if not df_filtrado.empty:
+                    lista_encontrados = df_filtrado["Produto"].tolist()
+                    
+                    # Se houver opções, exibe o selectbox refinado com os resultados da busca
+                    pesquisa = st.selectbox("Selecione o produto encontrado:", options=lista_encontrados)
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    quantidade = st.number_input(
-                        "Quantidade", min_value=1, max_value=int(estoque_disp), value=1
-                    )
-                with col2:
-                    # Preço de venda editável no ato da venda
-                    preco_venda_ato = st.number_input(
-                        "Preço Unitário de Venda (R$) [Editável no Ato]",
-                        value=preco_sugerido,
-                        format="%.2f",
-                    )
+                    if pesquisa:
+                        produto_info = df_estoque[df_estoque["Produto"] == pesquisa].iloc[0]
+                        estoque_disp = produto_info["Estoque"]
+                        depto = produto_info["Departamento"]
+                        preco_sugerido = float(produto_info["Preço Venda"])
 
-                if st.button("Inserir no Carrinho", type="primary"):
-                    st.session_state["carrinho"].append(
-                        {
-                            "Produto": pesquisa,
-                            "Departamento": depto,
-                            "Quantidade": quantidade,
-                            "Preço Unitário": preco_venda_ato,
-                            "Total": quantidade * preco_venda_ato,
-                        }
-                    )
-                    st.success(f"'{pesquisa}' adicionado ao carrinho com sucesso!")
+                        st.info(
+                            f"📦 Departamento: **{depto}** | Estoque Disponível: **{estoque_disp} unidades**"
+                        )
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            quantidade = st.number_input(
+                                "Quantidade", min_value=1, max_value=int(estoque_disp) if estoque_disp > 0 else 1, value=1
+                            )
+                        with col2:
+                            # Preço de venda editável no ato da venda
+                            preco_venda_ato = st.number_input(
+                                "Preço Unitário de Venda (R$) [Editável no Ato]",
+                                value=preco_sugerido,
+                                format="%.2f",
+                            )
+
+                        if st.button("Inserir no Carrinho", type="primary"):
+                            st.session_state["carrinho"].append(
+                                {
+                                    "Produto": pesquisa,
+                                    "Departamento": depto,
+                                    "Quantidade": quantidade,
+                                    "Preço Unitário": preco_venda_ato,
+                                    "Total": quantidade * preco_venda_ato,
+                                }
+                            )
+                            st.success(f"'{pesquisa}' adicionado ao carrinho com sucesso!")
+                else:
+                    st.warning("Nenhum produto encontrado com esse termo.")
+            else:
+                st.info("Digite algo no campo de cima para iniciar a busca no estoque.")
 
         st.markdown("---")
         st.subheader("🛍️ Itens no Carrinho")
@@ -195,5 +202,5 @@ elif menu == "⚙️ Gerenciar Preços e Produtos":
 
         if st.button("💾 Salvar Alterações do Estoque", type="primary"):
             st.session_state["estoque"] = df_editado
-            salvar_dados(df_editado)  # Salva permanentemente no arquivo local
+            salvar_dados(df_editado)
             st.success("Alterações salvas permanentemente no estoque com sucesso!")
