@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 import urllib.parse
+import zoneinfo
+import io
 
 # Configuração da página
 st.set_page_config(
@@ -10,6 +12,9 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# Fuso horário do Brasil (Brasília)
+TIMEZONE_BR = zoneinfo.ZoneInfo("America/Sao_Paulo")
 
 # Estilização CSS personalizada
 st.markdown("""
@@ -50,14 +55,14 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Inicializar Base de Dados de Estoque na Sessão (se não existir, inicia com alguns exemplos)
+# Inicializar Base de Dados de Estoque na Sessão com Custo e Preço de Venda
 if 'estoque_produtos' not in st.session_state:
     st.session_state.estoque_produtos = [
-        {"Produto": "AAS AD PROTECT 100MG 30CP", "Quantidade": 8, "Preço": 18.35},
-        {"Produto": "AMOXICILINA 500MG C/21 CP", "Quantidade": 45, "Preço": 24.90},
-        {"Produto": "PURAN T4 50MCG C/30 CP", "Quantidade": 120, "Preço": 18.00},
-        {"Produto": "DIPIRONA SÓDICA 500MG/ML GOTAS", "Quantidade": 210, "Preço": 7.50},
-        {"Produto": "DORFLEX C/10 CP", "Quantidade": 350, "Preço": 6.90},
+        {"Produto": "AAS AD PROTECT 100MG 30CP", "Quantidade": 8, "Custo": 10.00, "Preço": 18.35},
+        {"Produto": "AMOXICILINA 500MG C/21 CP", "Quantidade": 45, "Custo": 14.00, "Preço": 24.90},
+        {"Produto": "PURAN T4 50MCG C/30 CP", "Quantidade": 120, "Custo": 10.50, "Preço": 18.00},
+        {"Produto": "DIPIRONA SÓDICA 500MG/ML GOTAS", "Quantidade": 210, "Custo": 3.50, "Preço": 7.50},
+        {"Produto": "DORFLEX C/10 CP", "Quantidade": 350, "Custo": 3.20, "Preço": 6.90},
     ]
 
 # Inicializar Carrinho de Compras na Sessão
@@ -65,20 +70,17 @@ if 'carrinho' not in st.session_state:
     st.session_state.carrinho = []
 
 # Menu de Navegação
-menu = st.sidebar.radio("Navegação", ["Emitir Pedido / Carrinho", "Consultar Estoque", "Gerenciar / Importar Estoque"])
+menu = st.sidebar.radio("Navegação", ["Emitir Pedido / Carrinho", "Consultar Estoque", "Gerenciar / Importar Estoque", "Gráficos & Lucratividade"])
 
 if menu == "Emitir Pedido / Carrinho":
-    st.header("🛒 Carrinho & Comprovante Fiscal")
+    st.header("🛒 Carrinho & Cupom Fiscal")
     
     # Seção para Adicionar Produtos ao Carrinho com Busca Inteligente
     with st.expander("➕ Adicionar Produto do Estoque", expanded=True):
-        
-        # Criar lista ordenada de nomes para busca
         lista_nomes = sorted([str(p["Produto"]) for p in st.session_state.estoque_produtos])
         
         selected_prod = st.selectbox("Pesquisar Medicamento (Digite as iniciais):", lista_nomes)
         
-        # Achar o preço e estoque correspondente
         prod_obj = next((p for p in st.session_state.estoque_produtos if p["Produto"] == selected_prod), {"Preço": 0.0, "Quantidade": 0})
         preco_sugerido = prod_obj["Preço"]
         qtd_disponivel = prod_obj["Quantidade"]
@@ -121,29 +123,44 @@ if menu == "Emitir Pedido / Carrinho":
         
         st.divider()
         
-        # Dados do Cliente para Fechamento Fiscal
-        st.subheader("Emitir Cupom Fiscal / WhatsApp")
+        # Dados do Cliente e Pagamento com Cálculo de Troco
+        st.subheader("Dados para o Cupom Fiscal / WhatsApp")
         with st.form("form_finalizar"):
             cliente = st.text_input("Nome do Cliente")
             telefone = st.text_input("WhatsApp do Cliente (com DDD - ex: 22988887777)")
-            pagamento = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Cartão de Crédito", "Cartão de Débito"])
+            
+            pagamento = st.selectbox("Forma de Pagamento", ["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito"])
+            
+            valor_recebido = 0.0
+            troco = 0.0
+            if pagamento == "Dinheiro":
+                valor_recebido = st.number_input("Valor Recebido em Dinheiro (R$)", min_value=0.0, value=float(total_geral), format="%.2f")
             
             gerar_pedido = st.form_submit_button("Gerar Cupom Fiscal")
             
             if gerar_pedido:
                 if cliente and telefone:
-                    data_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    data_atual = datetime.datetime.now(TIMEZONE_BR).strftime("%d/%m/%Y %H:%M:%S")
                     
                     itens_texto = ""
                     for i, item in enumerate(st.session_state.carrinho, 1):
                         itens_texto += f"{i:02d} | {item['Qtd']}x {item['Produto']}\n     R$ {item['Preço Unit.']:.2f} un  ->  Subtotal: R$ {item['Subtotal']:.2f}\n"
                     
-                    tributos_aprox = total_geral * 0.1345 # Estimativa média de tributos federais/estaduais
+                    tributos_aprox = total_geral * 0.1345
                     
-                    # Layout Formato Comprovante Fiscal Oficial
+                    pagamento_texto = f"Dinheiro"
+                    troco_texto_cupom = ""
+                    if pagamento == "Dinheiro":
+                        troco = valor_recebido - total_geral
+                        if troco < 0:
+                            troco = 0.0
+                        pagamento_texto = f"Dinheiro\n  - Valor Recebido: R$ {valor_recebido:.2f}\n  - Troco: R$ {troco:.2f}"
+                    else:
+                        pagamento_texto = f"{pagamento}"
+
                     comprovante = f"""=====================================
           FARMA LAGOS - CUPOM FISCAL          
-       DROGARIA MAX RASA - FILIAL 01        
+       FARMA LAGOS - FILIAL 01              
   CNPJ: 68.530.976/0001-00                  
   Endereço: Armação dos Búzios - RJ         
 =====================================
@@ -154,7 +171,7 @@ CLIENTE: {cliente}
 COD | QTD | DESCRIÇÃO | UNIT | TOTAL
 {itens_texto}-------------------------------------
 TOTAL GERAL                         R$ {total_geral:.2f}
-FORMA DE PAGAMENTO: {pagamento}
+FORMA DE PAGAMENTO: {pagamento_texto}
 -------------------------------------
 Trib aprox: R$ {tributos_aprox:.2f} (Fonte: IBPT)
 Obrigado pela preferência!
@@ -193,73 +210,130 @@ Documento Auxiliar de Venda - Farma Lagos"""
         st.info("Seu carrinho está vazio. Adicione produtos acima para começar.")
 
 elif menu == "Consultar Estoque":
-    st.header("📦 Consulta Geral do Estoque")
-    st.markdown(f"Total de itens cadastrados atualmente: **{len(st.session_state.estoque_produtos)}**")
+    st.header("📦 Consulta e Edição de Estoque")
+    st.markdown(f"Total de itens cadastrados: **{len(st.session_state.estoque_produtos)}**")
     
+    # Editor interativo direto na tabela para alterar preços e quantidades facilmente
     df_estoque = pd.DataFrame(st.session_state.estoque_produtos)
-    pesquisa = st.text_input("🔍 Pesquisar medicamento no estoque:")
     
+    pesquisa = st.text_input("🔍 Pesquisar medicamento:")
     if pesquisa:
-        df_estoque = df_estoque[df_estoque["Produto"].str.contains(pesquisa, case=False, na=False)]
+        df_filtrado = df_estoque[df_estoque["Produto"].str.contains(pesquisa, case=False, na=False)]
+    else:
+        df_filtrado = df_estoque
+        
+    st.info("💡 Você pode editar os valores diretamente na tabela abaixo e clicar no botão para salvar as alterações.")
     
-    st.dataframe(df_estoque, use_container_width=True)
+    edited_df = st.data_editor(df_filtrado, use_container_width=True, num_rows="dynamic")
+    
+    if st.button("💾 Salvar Alterações no Estoque"):
+        # Atualizar a base de dados principal com base no editor
+        st.session_state.estoque_produtos = edited_df.to_dict(orient="records")
+        st.success("Estoque atualizado e salvo com sucesso!")
+        st.rerun()
 
 elif menu == "Gerenciar / Importar Estoque":
-    st.header("⚙️ Gerenciamento e Importação de Medicamentos")
+    st.header("⚙️ Importação e Cadastro de Produtos")
     
-    tab1, tab2 = st.tabs(["📥 Importar Planilha CSV", "➕ Cadastrar Novo Produto"])
+    tab1, tab2 = st.tabs(["📥 Importar Arquivos (Excel, CSV, Word, PDF)", "➕ Cadastrar Produto Manual"])
     
     with tab1:
-        st.subheader("Importar Lista Completa (CSV)")
-        st.markdown("Envie o seu arquivo CSV contendo as colunas de produtos para carregar todos os medicamentos de uma vez para o sistema da farmácia.")
+        st.subheader("Importar Lista de Medicamentos")
+        st.markdown("Envie arquivos nos formatos **Excel (.xlsx, .xls)**, **CSV**, **Word (.docx)** ou **PDF**. O sistema extrairá os dados automaticamente.")
         
-        arquivo_csv = st.file_uploader("Escolha o arquivo CSV de estoque", type=["csv"])
+        uploaded_file = st.file_uploader("Selecione o arquivo de estoque", type=["csv", "xlsx", "xls", "docx", "pdf"])
         
-        if arquivo_csv is not None:
+        if uploaded_file is not None:
+            file_extension = uploaded_file.name.split('.')[-1].lower()
             try:
-                # Ler arquivo enviado pelo usuário
-                df_upload = pd.read_csv(arquivo_csv, encoding='utf-8', sep=None, engine='python')
-                
-                st.write("Pré-visualização dos dados enviados:")
-                st.dataframe(df_upload.head(), use_container_width=True)
-                
-                if st.button("Confirmar e Importar para o Estoque da Farmácia"):
-                    # Normalizar colunas comuns
-                    col_prod = next((c for c in df_upload.columns if 'desc' in c.lower() or 'prod' in c.lower() or 'nome' in c.lower()), df_upload.columns[0])
-                    col_qtd = next((c for c in df_upload.columns if 'qtd' in c.lower() or 'quant' in c.lower()), df_upload.columns[1])
-                    col_preco = next((c for c in df_upload.columns if 'pre' in c.lower() or 'valor' in c.lower()), df_upload.columns[2])
-                    
-                    nova_lista = []
-                    for _, row in df_upload.iterrows():
-                        nova_lista.append({
-                            "Produto": str(row[col_prod]).strip().upper(),
-                            "Quantidade": int(row[col_qtd]) if pd.notnull(row[col_qtd]) else 0,
-                            "Preço": float(row[col_preco]) if pd.notnull(row[col_preco]) else 0.0
+                novos_itens = []
+                if file_extension in ['csv']:
+                    df_imp = pd.read_csv(uploaded_file, encoding='utf-8', sep=None, engine='python')
+                    for _, row in df_imp.iterrows():
+                        novos_itens.append({
+                            "Produto": str(row.iloc[0]).strip().upper(),
+                            "Quantidade": int(row.iloc[1]) if len(row) > 1 and pd.notnull(row.iloc[1]) else 10,
+                            "Custo": float(row.iloc[2])*0.6 if len(row) > 2 and pd.notnull(row.iloc[2]) else 10.0,
+                            "Preço": float(row.iloc[2]) if len(row) > 2 and pd.notnull(row.iloc[2]) else 15.0
                         })
-                    
-                    st.session_state.estoque_produtos = nova_lista
-                    st.success(f"Sucesso! {len(nova_lista)} medicamentos foram importados e carregados para o estoque!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao ler o arquivo CSV. Verifique o formato. Detalhes: {e}")
+                elif file_extension in ['xlsx', 'xls']:
+                    df_imp = pd.read_excel(uploaded_file)
+                    for _, row in df_imp.iterrows():
+                        novos_itens.append({
+                            "Produto": str(row.iloc[0]).strip().upper(),
+                            "Quantidade": int(row.iloc[1]) if len(row) > 1 and pd.notnull(row.iloc[1]) else 10,
+                            "Custo": float(row.iloc[2])*0.6 if len(row) > 2 and pd.notnull(row.iloc[2]) else 10.0,
+                            "Preço": float(row.iloc[2]) if len(row) > 2 and pd.notnull(row.iloc[2]) else 15.0
+                        })
+                elif file_extension in ['docx']:
+                    import docx
+                    doc = docx.Document(uploaded_file)
+                    for para in doc.paragraphs:
+                        texto = para.text.strip()
+                        if texto:
+                            novos_itens.append({"Produto": texto.upper(), "Quantidade": 20, "Custo": 10.0, "Preço": 20.0})
+                elif file_extension in ['pdf']:
+                    import pypdf
+                    reader = pypdf.PdfReader(uploaded_file)
+                    texto_pdf = ""
+                    for page in reader.pages:
+                        texto_pdf += page.extract_text() + "\n"
+                    linhas = texto_pdf.split('\n')
+                    for linha in linhas:
+                        l = linha.strip()
+                        if len(l) > 3:
+                            novos_itens.append({"Produto": l.upper(), "Quantidade": 15, "Custo": 12.0, "Preço": 25.0})
                 
+                if novos_itens:
+                    st.success(f"Arquivo lido com sucesso! {len(novos_itens)} itens encontrados.")
+                    if st.button("Confirmar e Mesclar ao Estoque"):
+                        st.session_state.estoque_produtos.extend(novos_itens)
+                        st.success("Estoque atualizado permanentemente na sessão!")
+                        st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao processar o arquivo: {e}")
+
     with tab2:
-        st.subheader("Cadastrar Produto Individual")
+        st.subheader("Cadastrar Novo Medicamento Individual")
         with st.form("form_cad_manual"):
             novo_nome = st.text_input("Nome / Descrição do Medicamento")
             c_qtd = st.number_input("Quantidade em Estoque", min_value=0, value=10)
-            c_preco = st.number_input("Preço de Venda (R$)", min_value=0.0, value=0.0, format="%.2f")
+            c_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, value=10.0, format="%.2f")
+            c_preco = st.number_input("Preço de Venda (R$)", min_value=0.0, value=20.0, format="%.2f")
             
-            cadastrar_btn = st.form_submit_button("Salvar no Estoque")
+            cadastrar_btn = st.form_submit_button("Salvar Novo Produto")
             
             if cadastrar_btn:
                 if novo_nome and c_preco > 0:
                     st.session_state.estoque_produtos.append({
                         "Produto": novo_nome.strip().upper(),
                         "Quantidade": c_qtd,
+                        "Custo": c_custo,
                         "Preço": c_preco
                     })
                     st.success(f"Produto '{novo_nome}' cadastrado com sucesso!")
                     st.rerun()
                 else:
                     st.warning("Preencha o nome do medicamento e um preço válido.")
+
+elif menu == "Gráficos & Lucratividade":
+    st.header("📊 Acompanhamento de Lucratividade")
+    
+    if len(st.session_state.estoque_produtos) > 0:
+        df_lucro = pd.DataFrame(st.session_state.estoque_produtos)
+        
+        # Garantir colunas de custo
+        if "Custo" not in df_lucro.columns:
+            df_lucro["Custo"] = df_lucro["Preço"] * 0.6
+            
+        df_lucro["Lucro Unitário (R$)"] = df_lucro["Preço"] - df_lucro["Custo"]
+        df_lucro["Margem de Lucro (%)"] = ((df_lucro["Preço"] - df_lucro["Custo"]) / df_lucro["Custo"] * 100).round(2)
+        
+        st.subheader("Resumo Financeiro do Estoque")
+        st.dataframe(df_lucro[["Produto", "Quantidade", "Custo", "Preço", "Lucro Unitário (R$)", "Margem de Lucro (%)"]], use_container_width=True)
+        
+        st.subheader("Visualização Gráfica de Preços (Custo vs Venda)")
+        chart_data = df_lucro.set_index("Produto")[["Custo", "Preço"]]
+        st.bar_chart(chart_data)
+    else:
+        st.info("Nenhum produto cadastrado no estoque para exibir relatórios.")
