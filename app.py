@@ -54,14 +54,60 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Inicializar Base de Dados de Estoque na Sessão
+# Inicializar Base de Dados de Estoque Oficial do Inventário na Sessão
 if 'estoque_produtos' not in st.session_state:
     st.session_state.estoque_produtos = [
-        {"Produto": "AAS AD PROTECT 100MG 30CP", "Quantidade": 8, "Custo": 10.00, "Preço": 18.35},
-        {"Produto": "AMOXICILINA 500MG C/21 CP", "Quantidade": 45, "Custo": 14.00, "Preço": 24.90},
-        {"Produto": "PURAN T4 50MCG C/30 CP", "Quantidade": 120, "Custo": 10.50, "Preço": 18.00},
-        {"Produto": "DIPIRONA SÓDICA 500MG/ML GOTAS", "Quantidade": 210, "Custo": 3.50, "Preço": 7.50},
-        {"Produto": "DORFLEX C/10 CP", "Quantidade": 350, "Custo": 3.20, "Preço": 6.90},
+        {"Produto": "BONIF 10%", "Quantidade": 3221, "Custo": 36632.09, "Preço": 92336.51},
+        {"Produto": "BONIF 5%", "Quantidade": 210, "Custo": 1327.18, "Preço": 5812.45},
+        {"Produto": "BONIF/ET", "Quantidade": 1898, "Custo": 12488.63, "Preço": 48529.60},
+        {"Produto": "CONTROLADOS", "Quantidade": 355, "Custo": 18638.30, "Preço": 31492.16},
+        {"Produto": "ET+", "Quantidade": 3217, "Custo": 93110.39, "Preço": 150121.41},
+        {"Produto": "ET/DERMO", "Quantidade": 731, "Custo": 34731.39, "Preço": 48750.04},
+        {"Produto": "ET/PBM", "Quantidade": 56, "Custo": 7456.19, "Preço": 12000.38},
+        {"Produto": "ETO", "Quantidade": 1204, "Custo": 32107.18, "Preço": 49586.46},
+        {"Produto": "GEN.7%", "Quantidade": 28, "Custo": 329.20, "Preço": 1560.02},
+        {"Produto": "GEN/CON 7%", "Quantidade": 568, "Custo": 17252.96, "Preço": 43935.05},
+        {"Produto": "GENERIC *7", "Quantidade": 4131, "Custo": 50511.87, "Preço": 149962.92},
+        {"Produto": "GENERIC 7%", "Quantidade": 175, "Custo": 3735.66, "Preço": 8956.70},
+        {"Produto": "GENERIC/ET", "Quantidade": 1969, "Custo": 11867.90, "Preço": 31312.08},
+        {"Produto": "LIBERADO", "Quantidade": 14, "Custo": 341.68, "Preço": 473.88},
+        {"Produto": "NATURAL", "Quantidade": 458, "Custo": 4281.36, "Preço": 6900.69},
+        {"Produto": "OFICINAIS", "Quantidade": 394, "Custo": 1923.39, "Preço": 3218.50},
+        {"Produto": "PF/ABSORV", "Quantidade": 562, "Custo": 4697.57, "Preço": 6444.98},
+        {"Produto": "PF/ACESSOR", "Quantidade": 824, "Custo": 5865.58, "Preço": 9195.17},
+        {"Produto": "PF/ADOCANT", "Quantidade": 75, "Custo": 788.86, "Preço": 1156.29},
+        {"Produto": "PF/AFRO", "Quantidade": 390, "Custo": 3043.80, "Preço": 5016.36},
+        {"Produto": "PF/ALIMENT", "Quantidade": 2669, "Custo": 9371.73, "Preço": 14942.08},
+        {"Produto": "PF/BARBA", "Quantidade": 336, "Custo": 3988.74, "Preço": 5608.29},
+        {"Produto": "PF/BEBIDA", "Quantidade": 230, "Custo": 636.86, "Preço": 1279.52},
+        {"Produto": "PF/BELEZA", "Quantidade": 339, "Custo": 4384.52, "Preço": 6817.68},
+        {"Produto": "PF/BUCAL", "Quantidade": 1028, "Custo": 10671.42, "Preço": 14600.46},
+        {"Produto": "PF/CAPILAR", "Quantidade": 2124, "Custo": 35726.56, "Preço": 51345.12},
+        {"Produto": "PF/COLONIA", "Quantidade": 69, "Custo": 1387.92, "Preço": 2123.57},
+        {"Produto": "PF/CONVENI", "Quantidade": 366, "Custo": 6486.70, "Preço": 10229.55},
+        {"Produto": "PF/CORPO", "Quantidade": 357, "Custo": 5355.34, "Preço": 7696.88},
+        {"Produto": "PF/CURATIV", "Quantidade": 1847, "Custo": 4215.72, "Preço": 6458.18},
+        {"Produto": "PF/CUTELAR", "Quantidade": 429, "Custo": 2045.61, "Preço": 3356.16},
+        {"Produto": "PF/DEPIL", "Quantidade": 34, "Custo": 930.38, "Preço": 1348.81},
+        {"Produto": "PF/DESODOR", "Quantidade": 1529, "Custo": 16072.37, "Preço": 22160.84},
+        {"Produto": "PF/FRALDA", "Quantidade": 805, "Custo": 24562.19, "Preço": 30479.42},
+        {"Produto": "PF/GERAL", "Quantidade": 1696, "Custo": 7641.03, "Preço": 11583.77},
+        {"Produto": "PF/GERIATR", "Quantidade": 235, "Custo": 6133.59, "Preço": 7966.07},
+        {"Produto": "PF/HIGIENE", "Quantidade": 633, "Custo": 2470.63, "Preço": 3813.72},
+        {"Produto": "PF/INFAN", "Quantidade": 650, "Custo": 10933.36, "Preço": 15783.56},
+        {"Produto": "PF/LEITE", "Quantidade": 410, "Custo": 14493.26, "Preço": 17761.48},
+        {"Produto": "PF/LESOES", "Quantidade": 278, "Custo": 1520.97, "Preço": 2488.76},
+        {"Produto": "PF/PAPEL", "Quantidade": 167, "Custo": 1343.22, "Preço": 1715.85},
+        {"Produto": "PF/PRESERV", "Quantidade": 228, "Custo": 2075.53, "Preço": 3262.49},
+        {"Produto": "PF/REPELEN", "Quantidade": 154, "Custo": 3632.82, "Preço": 5448.05},
+        {"Produto": "PF/ROSTO", "Quantidade": 95, "Custo": 1990.15, "Preço": 3037.63},
+        {"Produto": "PF/SABON", "Quantidade": 1084, "Custo": 5501.44, "Preço": 8132.87},
+        {"Produto": "PF/SOLAR", "Quantidade": 145, "Custo": 4035.59, "Preço": 6404.82},
+        {"Produto": "PF/TINT", "Quantidade": 643, "Custo": 7619.35, "Preço": 10713.44},
+        {"Produto": "PF/UNHA", "Quantidade": 1192, "Custo": 4763.96, "Preço": 7422.28},
+        {"Produto": "SUPLEMENTO", "Quantidade": 14, "Custo": 390.22, "Preço": 554.68},
+        {"Produto": "TINTURA", "Quantidade": 1, "Custo": 33.00, "Preço": 47.90},
+        {"Produto": "TOP VENDAS", "Quantidade": 7, "Custo": 46.10, "Preço": 248.26},
     ]
 
 # Inicializar Carrinho de Compras na Sessão
@@ -77,10 +123,10 @@ if menu == "Emitir Pedido / Carrinho":
     with st.expander("➕ Adicionar Produto do Estoque", expanded=True):
         lista_nomes = sorted([str(p["Produto"]) for p in st.session_state.estoque_produtos])
         
-        selected_prod = st.selectbox("Pesquisar Medicamento (Digite as iniciais):", lista_nomes)
+        selected_prod = st.selectbox("Pesquisar Medicamento / Grupo:", lista_nomes)
         
         prod_obj = next((p for p in st.session_state.estoque_produtos if p["Produto"] == selected_prod), {"Preço": 0.0, "Quantidade": 0})
-        preco_sugerido = prod_obj["Preço"]
+        preco_sugerido = prod_obj["Preço"] / max(prod_obj["Quantidade"], 1)
         qtd_disponivel = prod_obj["Quantidade"]
         
         st.caption(f"📦 Estoque disponível: **{qtd_disponivel} unidades**")
@@ -204,11 +250,11 @@ Documento Auxiliar de Venda - Farma Lagos"""
 
 elif menu == "Consultar Estoque":
     st.header("📦 Consulta e Edição de Estoque")
-    st.markdown(f"Total de itens cadastrados: **{len(st.session_state.estoque_produtos)}**")
+    st.markdown(f"Total de grupos de inventário cadastrados: **{len(st.session_state.estoque_produtos)}** (Total de itens no inventário: 40.242)")
     
     df_estoque = pd.DataFrame(st.session_state.estoque_produtos)
     
-    pesquisa = st.text_input("🔍 Pesquisar medicamento:")
+    pesquisa = st.text_input("🔍 Pesquisar medicamento/grupo:")
     if pesquisa:
         df_filtrado = df_estoque[df_estoque["Produto"].str.contains(pesquisa, case=False, na=False)]
     else:
@@ -226,63 +272,95 @@ elif menu == "Consultar Estoque":
 elif menu == "Gerenciar / Importar Estoque":
     st.header("⚙️ Importação e Cadastro de Produtos")
     
-    tab1, tab2 = st.tabs(["📥 Importar Arquivos (Excel, CSV, Word, PDF)", "➕ Cadastrar Produto Manual"])
+    # Botão de Carregamento Direto do Inventário Oficial
+    st.markdown("### 📋 Importação Automática do Inventário Oficial")
+    st.info("Clique no botão abaixo para carregar imediatamente todos os dados oficiais do inventário da Filial 01 para o seu aplicativo de vendas.")
+    if st.button("🚀 Carregar Dados Oficiais do Inventário (Filial 01)"):
+        st.session_state.estoque_produtos = [
+            {"Produto": "BONIF 10%", "Quantidade": 3221, "Custo": 36632.09, "Preço": 92336.51},
+            {"Produto": "BONIF 5%", "Quantidade": 210, "Custo": 1327.18, "Preço": 5812.45},
+            {"Produto": "BONIF/ET", "Quantidade": 1898, "Custo": 12488.63, "Preço": 48529.60},
+            {"Produto": "CONTROLADOS", "Quantidade": 355, "Custo": 18638.30, "Preço": 31492.16},
+            {"Produto": "ET+", "Quantidade": 3217, "Custo": 93110.39, "Preço": 150121.41},
+            {"Produto": "ET/DERMO", "Quantidade": 731, "Custo": 34731.39, "Preço": 48750.04},
+            {"Produto": "ET/PBM", "Quantidade": 56, "Custo": 7456.19, "Preço": 12000.38},
+            {"Produto": "ETO", "Quantidade": 1204, "Custo": 32107.18, "Preço": 49586.46},
+            {"Produto": "GEN.7%", "Quantidade": 28, "Custo": 329.20, "Preço": 1560.02},
+            {"Produto": "GEN/CON 7%", "Quantidade": 568, "Custo": 17252.96, "Preço": 43935.05},
+            {"Produto": "GENERIC *7", "Quantidade": 4131, "Custo": 50511.87, "Preço": 149962.92},
+            {"Produto": "GENERIC 7%", "Quantidade": 175, "Custo": 3735.66, "Preço": 8956.70},
+            {"Produto": "GENERIC/ET", "Quantidade": 1969, "Custo": 11867.90, "Preço": 31312.08},
+            {"Produto": "LIBERADO", "Quantidade": 14, "Custo": 341.68, "Preço": 473.88},
+            {"Produto": "NATURAL", "Quantidade": 458, "Custo": 4281.36, "Preço": 6900.69},
+            {"Produto": "OFICINAIS", "Quantidade": 394, "Custo": 1923.39, "Preço": 3218.50},
+            {"Produto": "PF/ABSORV", "Quantidade": 562, "Custo": 4697.57, "Preço": 6444.98},
+            {"Produto": "PF/ACESSOR", "Quantidade": 824, "Custo": 5865.58, "Preço": 9195.17},
+            {"Produto": "PF/ADOCANT", "Quantidade": 75, "Custo": 788.86, "Preço": 1156.29},
+            {"Produto": "PF/AFRO", "Quantidade": 390, "Custo": 3043.80, "Preço": 5016.36},
+            {"Produto": "PF/ALIMENT", "Quantidade": 2669, "Custo": 9371.73, "Preço": 14942.08},
+            {"Produto": "PF/BARBA", "Quantidade": 336, "Custo": 3988.74, "Preço": 5608.29},
+            {"Produto": "PF/BEBIDA", "Quantidade": 230, "Custo": 636.86, "Preço": 1279.52},
+            {"Produto": "PF/BELEZA", "Quantidade": 339, "Custo": 4384.52, "Preço": 6817.68},
+            {"Produto": "PF/BUCAL", "Quantidade": 1028, "Custo": 10671.42, "Preço": 14600.46},
+            {"Produto": "PF/CAPILAR", "Quantidade": 2124, "Custo": 35726.56, "Preço": 51345.12},
+            {"Produto": "PF/COLONIA", "Quantidade": 69, "Custo": 1387.92, "Preço": 2123.57},
+            {"Produto": "PF/CONVENI", "Quantidade": 366, "Custo": 6486.70, "Preço": 10229.55},
+            {"Produto": "PF/CORPO", "Quantidade": 357, "Custo": 5355.34, "Preço": 7696.88},
+            {"Produto": "PF/CURATIV", "Quantidade": 1847, "Custo": 4215.72, "Preço": 6458.18},
+            {"Produto": "PF/CUTELAR", "Quantidade": 429, "Custo": 2045.61, "Preço": 3356.16},
+            {"Produto": "PF/DEPIL", "Quantidade": 34, "Custo": 930.38, "Preço": 1348.81},
+            {"Produto": "PF/DESODOR", "Quantidade": 1529, "Custo": 16072.37, "Preço": 22160.84},
+            {"Produto": "PF/FRALDA", "Quantidade": 805, "Custo": 24562.19, "Preço": 30479.42},
+            {"Produto": "PF/GERAL", "Quantidade": 1696, "Custo": 7641.03, "Preço": 11583.77},
+            {"Produto": "PF/GERIATR", "Quantidade": 235, "Custo": 6133.59, "Preço": 7966.07},
+            {"Produto": "PF/HIGIENE", "Quantidade": 633, "Custo": 2470.63, "Preço": 3813.72},
+            {"Produto": "PF/INFAN", "Quantidade": 650, "Custo": 10933.36, "Preço": 15783.56},
+            {"Produto": "PF/LEITE", "Quantidade": 410, "Custo": 14493.26, "Preço": 17761.48},
+            {"Produto": "PF/LESOES", "Quantidade": 278, "Custo": 1520.97, "Preço": 2488.76},
+            {"Produto": "PF/PAPEL", "Quantidade": 167, "Custo": 1343.22, "Preço": 1715.85},
+            {"Produto": "PF/PRESERV", "Quantidade": 228, "Custo": 2075.53, "Preço": 3262.49},
+            {"Produto": "PF/REPELEN", "Quantidade": 154, "Custo": 3632.82, "Preço": 5448.05},
+            {"Produto": "PF/ROSTO", "Quantidade": 95, "Custo": 1990.15, "Preço": 3037.63},
+            {"Produto": "PF/SABON", "Quantidade": 1084, "Custo": 5501.44, "Preço": 8132.87},
+            {"Produto": "PF/SOLAR", "Quantidade": 145, "Custo": 4035.59, "Preço": 6404.82},
+            {"Produto": "PF/TINT", "Quantidade": 643, "Custo": 7619.35, "Preço": 10713.44},
+            {"Produto": "PF/UNHA", "Quantidade": 1192, "Custo": 4763.96, "Preço": 7422.28},
+            {"Produto": "SUPLEMENTO", "Quantidade": 14, "Custo": 390.22, "Preço": 554.68},
+            {"Produto": "TINTURA", "Quantidade": 1, "Custo": 33.00, "Preço": 47.90},
+            {"Produto": "TOP VENDAS", "Quantidade": 7, "Custo": 46.10, "Preço": 248.26},
+        ]
+        st.success("Estoque oficial carregado com sucesso! Verifique na aba de Consulta de Estoque.")
+        st.rerun()
+
+    st.divider()
+    tab1, tab2 = st.tabs(["📥 Importar Outros Arquivos", "➕ Cadastrar Produto Manual"])
     
     with tab1:
-        st.subheader("Importar Lista de Medicamentos")
-        st.markdown("Envie arquivos nos formatos **Excel (.xlsx, .xls)**, **CSV**, **Word (.docx)** ou **PDF**. O sistema extrairá os dados automaticamente.")
-        
-        uploaded_file = st.file_uploader("Selecione o arquivo de estoque", type=["csv", "xlsx", "xls", "docx", "pdf"])
+        st.subheader("Importar Planilhas")
+        uploaded_file = st.file_uploader("Selecione arquivo CSV ou Excel", type=["csv", "xlsx", "xls"])
         
         if uploaded_file is not None:
-            file_extension = uploaded_file.name.split('.')[-1].lower()
             try:
-                novos_itens = []
-                if file_extension in ['csv']:
-                    df_imp = pd.read_csv(uploaded_file, encoding='utf-8', sep=None, engine='python')
-                    for _, row in df_imp.iterrows():
-                        novos_itens.append({
-                            "Produto": str(row.iloc[0]).strip().upper(),
-                            "Quantidade": int(row.iloc[1]) if len(row) > 1 and pd.notnull(row.iloc[1]) else 10,
-                            "Custo": float(row.iloc[2])*0.6 if len(row) > 2 and pd.notnull(row.iloc[2]) else 10.0,
-                            "Preço": float(row.iloc[2]) if len(row) > 2 and pd.notnull(row.iloc[2]) else 15.0
-                        })
-                elif file_extension in ['xlsx', 'xls']:
+                if uploaded_file.name.endswith('.csv'):
+                    df_imp = pd.read_csv(uploaded_file)
+                else:
                     df_imp = pd.read_excel(uploaded_file)
+                
+                st.dataframe(df_imp.head())
+                if st.button("📥 Confirmar Importação de Arquivo"):
+                    novos = []
                     for _, row in df_imp.iterrows():
-                        novos_itens.append({
+                        novos.append({
                             "Produto": str(row.iloc[0]).strip().upper(),
                             "Quantidade": int(row.iloc[1]) if len(row) > 1 and pd.notnull(row.iloc[1]) else 10,
-                            "Custo": float(row.iloc[2])*0.6 if len(row) > 2 and pd.notnull(row.iloc[2]) else 10.0,
-                            "Preço": float(row.iloc[2]) if len(row) > 2 and pd.notnull(row.iloc[2]) else 15.0
+                            "Custo": float(row.iloc[2]) if len(row) > 2 and pd.notnull(row.iloc[2]) else 10.0,
+                            "Preço": float(row.iloc[3]) if len(row) > 3 and pd.notnull(row.iloc[3]) else 20.0
                         })
-                elif file_extension in ['docx']:
-                    import docx
-                    doc = docx.Document(uploaded_file)
-                    for para in doc.paragraphs:
-                        texto = para.text.strip()
-                        if texto:
-                            novos_itens.append({"Produto": texto.upper(), "Quantidade": 20, "Custo": 10.0, "Preço": 20.0})
-                elif file_extension in ['pdf']:
-                    import pypdf
-                    reader = pypdf.PdfReader(uploaded_file)
-                    texto_pdf = ""
-                    for page in reader.pages:
-                        texto_pdf += page.extract_text() + "\n"
-                    linhas = texto_pdf.split('\n')
-                    for linha in linhas:
-                        l = linha.strip()
-                        if len(l) > 3:
-                            novos_itens.append({"Produto": l.upper(), "Quantidade": 15, "Custo": 12.0, "Preço": 25.0})
-                
-                if novos_itens:
-                    st.success(f"Arquivo lido com sucesso! {len(novos_itens)} itens encontrados.")
-                    if st.button("📥 Confirmar e Atualizar Estoque"):
-                        st.session_state.estoque_produtos.extend(novos_itens)
-                        st.success("Estoque atualizado e salvo permanentemente!")
-                        st.rerun()
+                    st.session_state.estoque_produtos.extend(novos)
+                    st.success("Itens importados com sucesso!")
+                    st.rerun()
             except Exception as e:
-                st.error(f"Erro ao processar o arquivo: {e}")
+                st.error(f"Erro ao ler arquivo: {e}")
 
     with tab2:
         st.subheader("Cadastrar Novo Medicamento Individual")
