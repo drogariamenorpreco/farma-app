@@ -3,7 +3,6 @@ import pandas as pd
 import datetime
 import urllib.parse
 import zoneinfo
-import io
 
 # Configuração da página
 st.set_page_config(
@@ -55,7 +54,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Inicializar Base de Dados de Estoque na Sessão com Custo e Preço de Venda
+# Inicializar Base de Dados de Estoque na Sessão
 if 'estoque_produtos' not in st.session_state:
     st.session_state.estoque_produtos = [
         {"Produto": "AAS AD PROTECT 100MG 30CP", "Quantidade": 8, "Custo": 10.00, "Preço": 18.35},
@@ -75,7 +74,6 @@ menu = st.sidebar.radio("Navegação", ["Emitir Pedido / Carrinho", "Consultar E
 if menu == "Emitir Pedido / Carrinho":
     st.header("🛒 Carrinho & Cupom Fiscal")
     
-    # Seção para Adicionar Produtos ao Carrinho com Busca Inteligente
     with st.expander("➕ Adicionar Produto do Estoque", expanded=True):
         lista_nomes = sorted([str(p["Produto"]) for p in st.session_state.estoque_produtos])
         
@@ -108,7 +106,6 @@ if menu == "Emitir Pedido / Carrinho":
                 else:
                     st.warning("Selecione um produto e informe um preço válido.")
 
-    # Exibição do Carrinho
     if len(st.session_state.carrinho) > 0:
         st.subheader("Itens no Carrinho")
         df_carrinho = pd.DataFrame(st.session_state.carrinho)
@@ -123,7 +120,6 @@ if menu == "Emitir Pedido / Carrinho":
         
         st.divider()
         
-        # Dados do Cliente e Pagamento com Cálculo de Troco
         st.subheader("Dados para o Cupom Fiscal / WhatsApp")
         with st.form("form_finalizar"):
             cliente = st.text_input("Nome do Cliente")
@@ -148,8 +144,6 @@ if menu == "Emitir Pedido / Carrinho":
                     
                     tributos_aprox = total_geral * 0.1345
                     
-                    pagamento_texto = f"Dinheiro"
-                    troco_texto_cupom = ""
                     if pagamento == "Dinheiro":
                         troco = valor_recebido - total_geral
                         if troco < 0:
@@ -185,7 +179,6 @@ Documento Auxiliar de Venda - Farma Lagos"""
                 else:
                     st.warning("Por favor, preencha o nome e o WhatsApp do cliente.")
 
-        # Exibir botão do WhatsApp se gerado
         if 'comprovante_gerado' in st.session_state and st.session_state.comprovante_gerado:
             st.markdown("---")
             st.subheader("📤 Envio do Cupom via WhatsApp")
@@ -213,7 +206,6 @@ elif menu == "Consultar Estoque":
     st.header("📦 Consulta e Edição de Estoque")
     st.markdown(f"Total de itens cadastrados: **{len(st.session_state.estoque_produtos)}**")
     
-    # Editor interativo direto na tabela para alterar preços e quantidades facilmente
     df_estoque = pd.DataFrame(st.session_state.estoque_produtos)
     
     pesquisa = st.text_input("🔍 Pesquisar medicamento:")
@@ -227,7 +219,6 @@ elif menu == "Consultar Estoque":
     edited_df = st.data_editor(df_filtrado, use_container_width=True, num_rows="dynamic")
     
     if st.button("💾 Salvar Alterações no Estoque"):
-        # Atualizar a base de dados principal com base no editor
         st.session_state.estoque_produtos = edited_df.to_dict(orient="records")
         st.success("Estoque atualizado e salvo com sucesso!")
         st.rerun()
@@ -286,9 +277,9 @@ elif menu == "Gerenciar / Importar Estoque":
                 
                 if novos_itens:
                     st.success(f"Arquivo lido com sucesso! {len(novos_itens)} itens encontrados.")
-                    if st.button("Confirmar e Mesclar ao Estoque"):
+                    if st.button("📥 Confirmar e Atualizar Estoque"):
                         st.session_state.estoque_produtos.extend(novos_itens)
-                        st.success("Estoque atualizado permanentemente na sessão!")
+                        st.success("Estoque atualizado e salvo permanentemente!")
                         st.rerun()
             except Exception as e:
                 st.error(f"Erro ao processar o arquivo: {e}")
@@ -322,7 +313,6 @@ elif menu == "Gráficos & Lucratividade":
     if len(st.session_state.estoque_produtos) > 0:
         df_lucro = pd.DataFrame(st.session_state.estoque_produtos)
         
-        # Garantir colunas de custo
         if "Custo" not in df_lucro.columns:
             df_lucro["Custo"] = df_lucro["Preço"] * 0.6
             
