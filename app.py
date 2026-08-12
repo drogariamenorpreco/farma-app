@@ -53,13 +53,42 @@ menu = st.sidebar.radio("Navegação", ["Emitir Pedido", "Estoque & Preços", "C
 
 if menu == "Emitir Pedido":
     st.header("Emitir Pedido do Cliente")
-    # Insira aqui a lógica de emissão de pedidos e comprovante para o WhatsApp
-    st.info("Painel de emissão pronto para uso com o novo CNPJ.")
+    
+    with st.form("form_pedido"):
+        cliente = st.text_input("Nome do Cliente")
+        telefone = st.text_input("WhatsApp do Cliente (com DDD)")
+        produtos = st.text_area("Produtos / Itens do Pedido")
+        valor_total = st.number_input("Valor Total (R$)", min_value=0.0, format="%.2f")
+        pagamento = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Cartão de Crédito", "Cartão de Débito"])
+        
+        enviar = st.form_submit_button("Gerar Comprovante / Pedido")
+        
+        if enviar:
+            if cliente and produtos:
+                data_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                
+                comprovante = f"""*FARMA LAGOS*
+CNPJ: 68.530.976/0001-00
+Data: {data_atual}
+-----------------------------------
+*Cliente:* {cliente}
+*Itens:*
+{produtos}
+
+*Total:* R$ {valor_total:.2f}
+*Pagamento:* {pagamento}
+-----------------------------------
+Obrigado pela preferência!"""
+
+                st.success("Pedido gerado com sucesso!")
+                st.text_area("Copie o comprovante abaixo para enviar no WhatsApp:", comprovante, height=200)
+            else:
+                st.warning("Por favor, preencha o nome do cliente e os produtos.")
 
 elif menu == "Estoque & Preços":
     st.header("Estoque & Preços")
-    # Insira aqui a listagem de produtos e controle de estoque
+    st.info("Módulo de controle de preços e estoque em desenvolvimento.")
 
 elif menu == "Clientes & Alertas":
     st.header("Clientes & Alertas")
-    # Insira aqui a gestão de clientes
+    st.info("Módulo de gestão de clientes em desenvolvimento.")
