@@ -5,83 +5,86 @@ import urllib.parse
 st.set_page_config(page_title="Gestão Drogaria Max - Filial 01", layout="wide")
 
 st.title("💊 Drogaria Max - Gestão Filial 01")
-st.write("Painel completo de estoque, vendas, dados de entrega e envio via WhatsApp.")
 
-# Dados oficiais do inventário e vendas
-dados_inventario = [
-    {"Codigo": 130, "Produto": "ET+", "Departamento": "Éticos", "Estoque": 3217, "Unidades": 1199, "Custo": 93110.39, "Venda": 150121.41},
-    {"Codigo": 131, "Produto": "GEN", "Departamento": "Genéricos", "Estoque": 2450, "Unidades": 980, "Custo": 45200.50, "Venda": 78900.00},
-    {"Codigo": 132, "Produto": "CON", "Departamento": "Controlados", "Estoque": 120, "Unidades": 310, "Custo": 12500.00, "Venda": 22100.00},
-    {"Codigo": 133, "Produto": "PER", "Departamento": "Perfumaria", "Estoque": 1850, "Unidades": 1500, "Custo": 34000.00, "Venda": 62000.00},
-    {"Codigo": 134, "Produto": "COR", "Departamento": "Correlatos", "Estoque": 450, "Unidades": 520, "Custo": 8900.00, "Venda": 16500.00},
-    {"Codigo": 135, "Produto": "ALI", "Departamento": "Alimentar", "Estoque": 310, "Unidades": 310, "Custo": 4100.00, "Venda": 7800.00},
-    {"Codigo": 136, "Produto": "BON", "Departamento": "Bonificação", "Estoque": 890, "Unidades": 950, "Custo": 0.00, "Venda": 15400.00}
+# Base de dados de produtos detalhada com miligramas e variações para busca inteligente
+produtos_cadastrados = [
+    {"Codigo": 1301, "Produto": "Amoxicilina 500mg 21 caps", "Departamento": "Éticos", "Estoque": 120, "Custo": 18.50, "Venda": 35.90},
+    {"Codigo": 1302, "Produto": "Amoxicilina + Clavulanato 875mg", "Departamento": "Éticos", "Estoque": 85, "Custo": 42.00, "Venda": 79.90},
+    {"Codigo": 1303, "Produto": "Amoxicilina Suspensão 250mg", "Departamento": "Éticos", "Estoque": 60, "Custo": 15.00, "Venda": 28.50},
+    {"Codigo": 1311, "Produto": "Pantoprazol 20mg 28 comp", "Departamento": "Genéricos", "Estoque": 200, "Custo": 12.00, "Venda": 24.90},
+    {"Codigo": 1312, "Produto": "Pantoprazol 40mg 28 comp", "Departamento": "Genéricos", "Estoque": 150, "Custo": 22.00, "Venda": 44.90},
+    {"Codigo": 1321, "Produto": "Rivotril 2mg (Controlado)", "Departamento": "Controlados", "Estoque": 40, "Custo": 8.00, "Venda": 18.00},
+    {"Codigo": 1331, "Produto": "Perfume Desodorante Kaiak", "Departamento": "Perfumaria", "Estoque": 30, "Custo": 65.00, "Venda": 129.90},
+    {"Codigo": 1341, "Produto": "Gliclazida 30mg", "Departamento": "Éticos", "Estoque": 90, "Custo": 25.00, "Venda": 49.90}
 ]
 
-df = pd.DataFrame(dados_inventario)
+df_produtos = pd.DataFrame(produtos_cadastrados)
 
-# Abas de Navegação
-aba1, aba2, aba3 = st.tabs(["📦 Estoque & Vendas", "🚚 Dados de Entrega", "📱 Envio WhatsApp"])
+# Abas de Navegação do App
+aba1, aba2, aba3, aba4 = st.tabs(["🛒 Fazer Pedido / Venda", "📦 Estoque Geral", "🚚 Entregas", "📱 WhatsApp"])
 
 with aba1:
-    st.subheader("🔍 Pesquisa e Dados de Estoque/Vendas")
+    st.subheader("🛒 Balcão de Vendas - Pedido do Cliente")
+    st.write("Digite ou selecione o medicamento (ex: *Amoxicilina* ou *Pantoprazol*) para puxar automaticamente do estoque:")
+
+    # Caixa de seleção com busca inteligente
+    lista_nomes = df_produtos['Produto'].tolist()
+    produto_selecionado = st.selectbox("Pesquisar Produto / Medicamento:", options=["Selecione o produto..."] + lista_nomes)
+
+    if produto_selecionado and produto_selecionado != "Selecione o produto...":
+        # Puxa as informações exatas do estoque do produto selecionado
+        info_prod = df_produtos[df_produtos['Produto'] == produto_selecionado].iloc[0]
+        
+        st.info(f"**Produto:** {info_prod['Produto']} | **Estoque Atual:** {info_prod['Estoque']} unidades | **Preço de Venda:** R$ {info_prod['Venda']:.2f}")
+        
+        quantidade_pedido = st.number_input("Quantidade desejada:", min_value=1, max_value=int(info_prod['Estoque']), value=1)
+        
+        nome_cliente_pedido = st.text_input("Nome do Cliente:", "")
+        telefone_pedido = st.text_input("WhatsApp do Cliente (com DDD, ex: 22999999999):", "")
+        
+        total_item = quantidade_pedido * info_prod['Venda']
+        st.write(f"### **Total do Pedido: R$ {total_item:.2f}**")
+        
+        if st.button("Finalizar Pedido e Enviar Comprovante"):
+            if nome_cliente_pedido and telefone_pedido:
+                resumo_texto = f"*PEDIDO - DROGARIA MAX (FILIAL 01)*\n\n*Cliente:* {nome_cliente_pedido}\n*Item:* {info_prod['Produto']}\n*Quantidade:* {quantidade_pedido}\n*Valor Total:* R$ {total_item:.2f}\n\nObrigado pela preferência!"
+                encoded_msg = urllib.parse.quote(resumo_texto)
+                link_wpp = f"https://wa.me/55{telefone_pedido}?text={encoded_msg}"
+                
+                st.success("Pedido gerado com sucesso!")
+                st.markdown(f"[📲 Clique aqui para enviar o comprovante via WhatsApp]({link_wpp})", unsafe_allow_html=True)
+            else:
+                st.warning("Por favor, preencha o Nome e o WhatsApp do cliente antes de finalizar.")
+
+with aba2:
+    st.subheader("📦 Consulta de Estoque Geral")
+    pesquisa = st.text_input("Pesquisar por nome ou departamento:", "")
     
-    # Lupa de pesquisa
-    pesquisa = st.text_input("Pesquisar por Código, Produto ou Departamento", "")
-    
-    df_filtrado = df.copy()
+    df_filtrado = df_produtos.copy()
     if pesquisa:
-        pesquisa_lower = pesquisa.lower()
-        df_filtrado = df[
-            df['Produto'].str.lower().str.contains(pesquisa_lower) |
-            df['Departamento'].str.lower().str.contains(pesquisa_lower) |
-            df['Codigo'].astype(str).str.contains(pesquisa_lower)
+        p_lower = pesquisa.lower()
+        df_filtrado = df_produtos[
+            df_produtos['Produto'].str.lower().str.contains(p_lower) |
+            df_produtos['Departamento'].str.lower().str.contains(p_lower)
         ]
-    
-    # Métricas de resumo de vendas e custo
-    total_custo = df_filtrado['Custo'].sum()
-    total_venda = df_filtrado['Venda'].sum()
-    
-    col1, col2 = st.columns(2)
-    col1.metric("Custo Total", f"R$ {total_custo:,.2f}")
-    col2.metric("Valor de Venda Total", f"R$ {total_venda:,.2f}")
     
     st.dataframe(df_filtrado, use_container_width=True)
     
-    # Botão para baixar CSV
-    csv_data = df_filtrado.to_csv(sep=';', index=False).encode('utf-8-sig')
-    st.download_button(
-        label="📥 Baixar Dados Filtrados em CSV",
-        data=csv_data,
-        file_name="inventario_vendas_filial01.csv",
-        mime="text/csv",
-    )
-
-with aba2:
-    st.subheader("🚚 Controle de Dados de Entrega")
-    st.write("Registre e verifique o status das entregas da filial:")
-    
-    dados_entrega = [
-        {"Pedido": "#101", "Cliente": "Mariane", "Endereço": "Praia Rasa, Búzios", "Status": "Entregue", "Valor": "R$ 150,00"},
-        {"Pedido": "#102", "Cliente": "João Silva", "Endereço": "Centro, Búzios", "Status": "Em Rota", "Valor": "R$ 89,90"},
-        {"Pedido": "#103", "Cliente": "Ana Souza", "Endereço": "Manguinhos, Búzios", "Status": "Separando", "Valor": "R$ 210,50"}
-    ]
-    df_entrega = pd.DataFrame(dados_entrega)
-    st.dataframe(df_entrega, use_container_width=True)
+    csv_bytes = df_filtrado.to_csv(sep=';', index=False).encode('utf-8-sig')
+    st.download_button("📥 Baixar Estoque em CSV", data=csv_bytes, file_name="estoque_drogaria_max.csv", mime="text/csv")
 
 with aba3:
-    st.subheader("📱 Enviar Comprovante / Resumo via WhatsApp")
-    
-    telefone = st.text_input("Número do WhatsApp (com DDD, ex: 22999999999)", "")
-    nome_cliente = st.text_input("Nome do Cliente", "")
-    detalhes_pedido = st.text_area("Detalhes / Comprovante do Pedido", "Olá! Segue o resumo do seu pedido na Drogaria Max - Filial 01.")
-    
-    if st.button("Gerar Link do WhatsApp"):
-        if telefone and nome_cliente:
-            mensagem = f"Olá {nome_cliente},\n\n{detalhes_pedido}\n\nObrigado pela preferência!"
-            mensagem_codificada = urllib.parse.quote(mensagem)
-            link_zap = f"https://wa.me/55{telefone}?text={mensagem_codificada}"
-            st.success("Link gerado com sucesso! Clique abaixo para enviar:")
-            st.markdown(f"[📲 Clique aqui para abrir no WhatsApp]({link_zap})", unsafe_allow_html=True)
-        else:
-            st.warning("Por favor, preencha o número do WhatsApp e o nome do cliente.")
+    st.subheader("🚚 Controle de Entregas")
+    dados_entrega = [
+        {"Pedido": "#201", "Cliente": "Mariane", "Endereço": "Praia Rasa, Búzios", "Status": "A Caminho", "Valor": "R$ 79,90"}
+    ]
+    st.dataframe(pd.DataFrame(dados_entrega), use_container_width=True)
+
+with aba4:
+    st.subheader("📱 Envio Geral de Mensagens")
+    fone = st.text_input("Número do WhatsApp (com DDD):", "")
+    msg = st.text_area("Mensagem:", "Olá da Drogaria Max - Filial 01!")
+    if st.button("Gerar Link WhatsApp"):
+        if fone:
+            link = f"https://wa.me/55{fone}?text={urllib.parse.quote(msg)}"
+            st.markdown(f"[📲 Abrir no WhatsApp]({link})", unsafe_allow_html=True)
