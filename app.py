@@ -1,6 +1,10 @@
-import csv
+import streamlit as st
+import pandas as pd
 
-# Dados oficiais do inventário da Filial 01 validados
+st.title("Inventário - Drogaria Max (Filial 01)")
+st.write("Dados oficiais validados para gestão e importação.")
+
+# Dados oficiais do inventário
 dados_inventario = [
     {"Codigo": 130, "Produto": "ET+", "Departamento": "Éticos", "Estoque": 3217, "Unidades": 1199, "Custo": 93110.39, "Venda": 150121.41},
     {"Codigo": 131, "Produto": "GEN", "Departamento": "Genéricos", "Estoque": 2450, "Unidades": 980, "Custo": 45200.50, "Venda": 78900.00},
@@ -11,17 +15,17 @@ dados_inventario = [
     {"Codigo": 136, "Produto": "BON", "Departamento": "Bonificação", "Estoque": 890, "Unidades": 950, "Custo": 0.00, "Venda": 15400.00}
 ]
 
-def gerar_csv():
-    nome_arquivo_csv = "inventario_farmacia_filial01.csv"
-    colunas = ["Codigo", "Produto", "Departamento", "Estoque", "Unidades", "Custo", "Venda"]
-    
-    with open(nome_arquivo_csv, mode='w', newline='', encoding='utf-8-sig') as arquivo_csv:
-        escritor = csv.DictWriter(arquivo_csv, fieldnames=colunas, delimiter=';')
-        escritor.writeheader()
-        for linha in dados_inventario:
-            escritor.writerow(linha)
-            
-    print(f"Arquivo '{nome_arquivo_csv}' gerado com sucesso!")
+df = pd.DataFrame(dados_inventario)
 
-if __name__ == "__main__":
-    gerar_csv()
+# Exibe a tabela na tela
+st.subheader("Tabela de Estoque")
+st.dataframe(df, use_container_width=True)
+
+# Botão direto para baixar o CSV com segurança pelo navegador
+csv_data = df.to_csv(sep=';', index=False).encode('utf-8-sig')
+st.download_button(
+    label="📥 Baixar Arquivo CSV de Inventário",
+    data=csv_data,
+    file_name="inventario_farmacia_filial01.csv",
+    mime="text/csv",
+)
