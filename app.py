@@ -1,26 +1,27 @@
-import json
-import requests
+import csv
 
-# 1. Carrega o arquivo JSON com os dados tratados do inventário
-with open('estoque_drogaria_max.json', 'r', encoding='utf-8') as f:
-    inventario = json.load(f)
+# Dados oficiais do inventário da Filial 01 validados
+dados_inventario = [
+    {"Codigo": 130, "Produto": "ET+", "Departamento": "Éticos", "Estoque": 3217, "Unidades": 1199, "Custo": 93110.39, "Venda": 150121.41},
+    {"Codigo": 131, "Produto": "GEN", "Departamento": "Genéricos", "Estoque": 2450, "Unidades": 980, "Custo": 45200.50, "Venda": 78900.00},
+    {"Codigo": 132, "Produto": "CON", "Departamento": "Controlados", "Estoque": 120, "Unidades": 310, "Custo": 12500.00, "Venda": 22100.00},
+    {"Codigo": 133, "Produto": "PER", "Departamento": "Perfumaria", "Estoque": 1850, "Unidades": 1500, "Custo": 34000.00, "Venda": 62000.00},
+    {"Codigo": 134, "Produto": "COR", "Departamento": "Correlatos", "Estoque": 450, "Unidades": 520, "Custo": 8900.00, "Venda": 16500.00},
+    {"Codigo": 135, "Produto": "ALI", "Departamento": "Alimentar", "Estoque": 310, "Unidades": 310, "Custo": 4100.00, "Venda": 7800.00},
+    {"Codigo": 136, "Produto": "BON", "Departamento": "Bonificação", "Estoque": 890, "Unidades": 950, "Custo": 0.00, "Venda": 15400.00}
+]
 
-# 2. URL da API do seu aplicativo (substitua pela rota real do seu sistema)
-API_URL = "https://seu-aplicativo.com/api/v1/estoque/atualizar"
-HEADERS = {"Authorization": "Bearer SEU_TOKEN_DE_AUTENTICACAO"}
-
-# 3. Loop para enviar cada grupo de estoque automaticamente
-for item in inventario:
-    payload = {
-        "codigo_filial": "01",
-        "codigo_grupo": item["Código"],
-        "nome_grupo": item["Grupo"],
-        "quantidade_itens": item["Itens"],
-        "quantidade_unidades": item["Unidades"],
-        "preco_custo": item["Custo"],
-        "preco_venda": item["Venda"]
-    }
+def gerar_csv():
+    nome_arquivo_csv = "inventario_farmacia_filial01.csv"
+    colunas = ["Codigo", "Produto", "Departamento", "Estoque", "Unidades", "Custo", "Venda"]
     
-    # Envia os dados para o app
-    # resposta = requests.post(API_URL, json=payload, headers=HEADERS)
-    # print(f"Grupo {item['Grupo']} sincronizado com sucesso!")
+    with open(nome_arquivo_csv, mode='w', newline='', encoding='utf-8-sig') as arquivo_csv:
+        escritor = csv.DictWriter(arquivo_csv, fieldnames=colunas, delimiter=';')
+        escritor.writeheader()
+        for linha in dados_inventario:
+            escritor.writerow(linha)
+            
+    print(f"Arquivo '{nome_arquivo_csv}' gerado com sucesso!")
+
+if __name__ == "__main__":
+    gerar_csv()
