@@ -1,90 +1,133 @@
 import streamlit as st
 import pandas as pd
-import urllib.parse
 
-st.set_page_config(page_title="Gestão Drogaria Max - Filial 01", layout="wide")
+# Configuração da página
+st.set_page_config(page_title="Farma Búzios - Vendas", page_icon="💊", layout="centered")
 
-st.title("💊 Drogaria Max - Gestão Filial 01")
+st.title("💊 Farma Búzios - Gestão & Vendas")
 
-# Base de dados de produtos detalhada com miligramas e variações para busca inteligente
-produtos_cadastrados = [
-    {"Codigo": 1301, "Produto": "Amoxicilina 500mg 21 caps", "Departamento": "Éticos", "Estoque": 120, "Custo": 18.50, "Venda": 35.90},
-    {"Codigo": 1302, "Produto": "Amoxicilina + Clavulanato 875mg", "Departamento": "Éticos", "Estoque": 85, "Custo": 42.00, "Venda": 79.90},
-    {"Codigo": 1303, "Produto": "Amoxicilina Suspensão 250mg", "Departamento": "Éticos", "Estoque": 60, "Custo": 15.00, "Venda": 28.50},
-    {"Codigo": 1311, "Produto": "Pantoprazol 20mg 28 comp", "Departamento": "Genéricos", "Estoque": 200, "Custo": 12.00, "Venda": 24.90},
-    {"Codigo": 1312, "Produto": "Pantoprazol 40mg 28 comp", "Departamento": "Genéricos", "Estoque": 150, "Custo": 22.00, "Venda": 44.90},
-    {"Codigo": 1321, "Produto": "Rivotril 2mg (Controlado)", "Departamento": "Controlados", "Estoque": 40, "Custo": 8.00, "Venda": 18.00},
-    {"Codigo": 1331, "Produto": "Perfume Desodorante Kaiak", "Departamento": "Perfumaria", "Estoque": 30, "Custo": 65.00, "Venda": 129.90},
-    {"Codigo": 1341, "Produto": "Gliclazida 30mg", "Departamento": "Éticos", "Estoque": 90, "Custo": 25.00, "Venda": 49.90}
-]
+# --- INICIALIZAÇÃO DO ESTADO DA SESSÃO (CARRINHO E DADOS) ---
+if "carrinho" not in st.session_state:
+    st.session_state.carrinho = []
 
-df_produtos = pd.DataFrame(produtos_cadastrados)
+# Base de dados de exemplo / simulada (Ajuste ou carregue o seu CSV aqui se necessário)
+@st.cache_data
+def carregar_produtos():
+    return pd.DataFrame([
+        {"id": 1, "nome": "ENTRESTO 49MG/51MG C/60 COMP", "preco_de": 374.92, "preco_por": 318.68, "estoque": 10},
+        {"id": 2, "nome": "DIPIRONA 500MG C/20 COMP", "preco_de": 12.00, "preco_por": 8.50, "estoque": 50},
+        {"id": 3, "nome": "DORFLEX C/36 COMP", "preco_de": 28.00, "preco_por": 22.90, "estoque": 30},
+        {"id": 4, "nome": "LOSARTANA POTÁSSICA 50MG C/30 COMP", "preco_de": 15.00, "preco_por": 9.90, "estoque": 40},
+    ])
 
-# Abas de Navegação do App
-aba1, aba2, aba3, aba4 = st.tabs(["🛒 Fazer Pedido / Venda", "📦 Estoque Geral", "🚚 Entregas", "📱 WhatsApp"])
+df_produtos = carregar_produtos()
 
-with aba1:
-    st.subheader("🛒 Balcão de Vendas - Pedido do Cliente")
-    st.write("Digite ou selecione o medicamento (ex: *Amoxicilina* ou *Pantoprazol*) para puxar automaticamente do estoque:")
+# --- ÁREA DE SELEÇÃO E BUSCA DE MEDICAMENTOS ---
+st.markdown("### Selecione o Medicamento")
 
-    # Caixa de seleção com busca inteligente
-    lista_nomes = df_produtos['Produto'].tolist()
-    produto_selecionado = st.selectbox("Pesquisar Produto / Medicamento:", options=["Selecione o produto..."] + lista_nomes)
+# Seleção do Produto
+produto_nome = st.selectbox(
+    "Selecione:",
+    options=df_produtos["nome"].tolist(),
+    index=0
+)
 
-    if produto_selecionado and produto_selecionado != "Selecione o produto...":
-        # Puxa as informações exatas do estoque do produto selecionado
-        info_prod = df_produtos[df_produtos['Produto'] == produto_selecionado].iloc[0]
-        
-        st.info(f"**Produto:** {info_prod['Produto']} | **Estoque Atual:** {info_prod['Estoque']} unidades | **Preço de Venda:** R$ {info_prod['Venda']:.2f}")
-        
-        quantidade_pedido = st.number_input("Quantidade desejada:", min_value=1, max_value=int(info_prod['Estoque']), value=1)
-        
-        nome_cliente_pedido = st.text_input("Nome do Cliente:", "")
-        telefone_pedido = st.text_input("WhatsApp do Cliente (com DDD, ex: 22999999999):", "")
-        
-        total_item = quantidade_pedido * info_prod['Venda']
-        st.write(f"### **Total do Pedido: R$ {total_item:.2f}**")
-        
-        if st.button("Finalizar Pedido e Enviar Comprovante"):
-            if nome_cliente_pedido and telefone_pedido:
-                resumo_texto = f"*PEDIDO - DROGARIA MAX (FILIAL 01)*\n\n*Cliente:* {nome_cliente_pedido}\n*Item:* {info_prod['Produto']}\n*Quantidade:* {quantidade_pedido}\n*Valor Total:* R$ {total_item:.2f}\n\nObrigado pela preferência!"
-                encoded_msg = urllib.parse.quote(resumo_texto)
-                link_wpp = f"https://wa.me/55{telefone_pedido}?text={encoded_msg}"
-                
-                st.success("Pedido gerado com sucesso!")
-                st.markdown(f"[📲 Clique aqui para enviar o comprovante via WhatsApp]({link_wpp})", unsafe_allow_html=True)
-            else:
-                st.warning("Por favor, preencha o Nome e o WhatsApp do cliente antes de finalizar.")
+# Obter dados do produto selecionado
+produto_info = df_produtos[df_produtos["nome"] == produto_nome].iloc[0]
 
-with aba2:
-    st.subheader("📦 Consulta de Estoque Geral")
-    pesquisa = st.text_input("Pesquisar por nome ou departamento:", "")
+# Campos de Preço e Quantidade
+col1, col2 = st.columns(2)
+with col1:
+    preco_final = st.number_input(
+        "Preço de Venda Final (R$):",
+        value=float(produto_info["preco_por"]),
+        format="%.2f"
+    )
+with col2:
+    quantidade = st.number_input(
+        "Quantidade:",
+        min_value=1,
+        max_value=int(produto_info["estoque"]),
+        value=1,
+        step=1
+    )
+
+# Botão Adicionar ao Carrinho
+if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
+    # Procura se o item já está no carrinho
+    item_existente = next((item for item in st.session_state.carrinho if item["id"] == produto_info["id"]), None)
     
-    df_filtrado = df_produtos.copy()
-    if pesquisa:
-        p_lower = pesquisa.lower()
-        df_filtrado = df_produtos[
-            df_produtos['Produto'].str.lower().str.contains(p_lower) |
-            df_produtos['Departamento'].str.lower().str.contains(p_lower)
-        ]
+    if item_existente:
+        item_existente["quantidade"] += quantidade
+        item_existente["preco_unitario"] = preco_final
+    else:
+        st.session_state.carrinho.append({
+            "id": produto_info["id"],
+            "nome": produto_info["nome"],
+            "preco_de": produto_info["preco_de"],
+            "preco_unitario": preco_final,
+            "quantidade": quantidade
+        })
     
-    st.dataframe(df_filtrado, use_container_width=True)
+    st.success(f"✅ **{produto_nome}** adicionado ao carrinho!")
+
+st.divider()
+
+# --- EXIBIÇÃO FIXA DO CARRINHO DE COMPRAS ---
+st.markdown("### 🛒 Carrinho de Compras (Itens Adicionados)")
+
+if len(st.session_state.carrinho) == 0:
+    st.info("Nenhum medicamento no carrinho no momento.")
+else:
+    subtotal_geral = 0.0
     
-    csv_bytes = df_filtrado.to_csv(sep=';', index=False).encode('utf-8-sig')
-    st.download_button("📥 Baixar Estoque em CSV", data=csv_bytes, file_name="estoque_drogaria_max.csv", mime="text/csv")
+    # Lista cada item do carrinho acumulado
+    for idx, item in enumerate(st.session_state.carrinho):
+        subtotal_item = item["preco_unitario"] * item["quantidade"]
+        subtotal_geral += subtotal_item
+        
+        c1, c2, c3 = st.columns([3, 1, 1])
+        with c1:
+            st.markdown(f"**{item['quantidade']}x {item['nome']}**")
+            st.caption(f"De: R$ {item['preco_de']:.2f} | **Por: R$ {item['preco_unitario']:.2f} un.**")
+        with c2:
+            st.markdown(f"**R$ {subtotal_item:.2f}**")
+        with c3:
+            if st.button("🗑️", key=f"del_{idx}"):
+                st.session_state.carrinho.pop(idx)
+                st.rerun()
+        st.divider()
 
-with aba3:
-    st.subheader("🚚 Controle de Entregas")
-    dados_entrega = [
-        {"Pedido": "#201", "Cliente": "Mariane", "Endereço": "Praia Rasa, Búzios", "Status": "A Caminho", "Valor": "R$ 79,90"}
-    ]
-    st.dataframe(pd.DataFrame(dados_entrega), use_container_width=True)
+    # --- TAXA DE ENTREGA E DADOS DO CLIENTE ---
+    add_taxa = st.checkbox("🚚 Adicionar taxa de entrega?")
+    taxa_entrega = 0.0
+    if add_taxa:
+        taxa_entrega = st.number_input("Valor da taxa (R$):", min_value=0.0, value=5.0, step=1.0)
 
-with aba4:
-    st.subheader("📱 Envio Geral de Mensagens")
-    fone = st.text_input("Número do WhatsApp (com DDD):", "")
-    msg = st.text_area("Mensagem:", "Olá da Drogaria Max - Filial 01!")
-    if st.button("Gerar Link WhatsApp"):
-        if fone:
-            link = f"https://wa.me/55{fone}?text={urllib.parse.quote(msg)}"
-            st.markdown(f"[📲 Abrir no WhatsApp]({link})", unsafe_allow_html=True)
+    nome_cliente = st.text_input("Nome do Cliente:")
+    whatsapp_cliente = st.text_input("WhatsApp (ex: 22999999999):")
+
+    total_final = subtotal_geral + taxa_entrega
+
+    st.markdown(f"#### **Total a Pagar: R$ {total_final:.2f}**")
+
+    # Botão para gerar comprovante/nota
+    if st.button("✅ GERAR NOTA E OPÇÕES", use_container_width=True):
+        st.success("Nota gerada com sucesso!")
+        
+        # Gerar texto para WhatsApp
+        msg_wa = f"*FARMA BÚZIOS*\n------------------------\n"
+        msg_wa += f"👤 Cliente: {nome_cliente if nome_cliente else 'Cliente'}\n"
+        msg_wa += "------------------------\n*ITENS:*\n"
+        for i in st.session_state.carrinho:
+            msg_wa += f"• {i['quantidade']}x {i['nome']} - R$ {i['preco_unitario']*i['quantidade']:.2f}\n"
+        if taxa_entrega > 0:
+            msg_wa += f"🛵 Taxa de Entrega: R$ {taxa_entrega:.2f}\n"
+        msg_wa += f"------------------------\n*TOTAL: R$ {total_final:.2f}*"
+        
+        st.text_area("Comprovante WhatsApp:", value=msg_wa, height=150)
+        
+        # Limpar carrinho após finalizar
+        if st.button("Limpar Carrinho"):
+            st.session_state.carrinho = []
+            st.rerun()
