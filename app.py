@@ -143,10 +143,7 @@ with aba1:
         st.markdown("### 👤 Dados do Cliente")
         whatsapp_input = st.text_input("WhatsApp (Digite o número para buscar cliente salvo):", placeholder="Ex: 24981279222")
 
-        # Limpar número para busca
         tel_limpo = re.sub(r'\D', '', whatsapp_input)
-        
-        # Verificar se já existe cadastrado na base
         cliente_encontrado = st.session_state.base_clientes.get(tel_limpo, {"nome": "", "endereco": ""})
 
         nome_cliente = st.text_input("Nome do Cliente:", value=cliente_encontrado["nome"], placeholder="Ex: Claudinei")
@@ -156,19 +153,18 @@ with aba1:
         st.markdown(f"### **TOTAL DO PEDIDO: R$ {valor_total_final:.2f}**")
         st.markdown(f"🎉 **Economia Total do Cliente: R$ {total_desconto_geral:.2f}**")
 
+        # BOTÃO GERAR NOTA, SALVAR NO HISTÓRICO E PREPARAR WHATSAPP
         if st.button("✅ GERAR NOTA E FINALIZAR PEDIDO", use_container_width=True):
             agora = datetime.now()
             data_formatada = agora.strftime("%d/%m/%Y")
             hora_formatada = agora.strftime("%H:%M:%S")
 
-            # Salvar automaticamente cliente na base de clientes
             if tel_limpo and nome_cliente.strip():
                 st.session_state.base_clientes[tel_limpo] = {
                     "nome": nome_cliente.strip().upper(),
                     "endereco": endereco_cliente.strip()
                 }
 
-            # Salvar no Histórico de Vendas
             itens_comprados_str = ", ".join([f"{i['qtd']}x {i['nome']} (R$ {i['preco']:.2f} un.)" for i in st.session_state.carrinho])
             
             registro_venda = {
@@ -187,27 +183,27 @@ with aba1:
             st.session_state.historico_vendas.append(registro_venda)
             st.success("✅ Pedido finalizado, cliente salvo e registrado no histórico!")
 
-            # Montar comprovante formatado
+            # Montar comprovante formatado com espaçamento limpo entre os produtos
             resumo = "*FARMA BÚZIOS*\n-------------------\n"
             resumo += f"📅 *Data:* {data_formatada} às {hora_formatada}\n"
             resumo += f"👤 *Cliente:* {nome_cliente if nome_cliente else 'Cliente'}\n"
             if endereco_cliente.strip():
                 resumo += f"📍 *Endereço:* {endereco_cliente.strip()}\n"
-            resumo += "-------------------\n*ITENS DO PEDIDO:*\n"
+            resumo += "-------------------\n*ITENS DO PEDIDO:*\n\n"
             
             for i in st.session_state.carrinho:
                 preco_unit = i['preco']
                 preco_de_unit = preco_unit / 0.80
                 total_item_venda = preco_unit * i['qtd']
-                resumo += f"• {i['qtd']}x {i['nome']} = De ~R$ {preco_de_unit:.2f}~ por *R$ {preco_unit:.2f}* (Total: *R$ {total_item_venda:.2f}*)\n"
+                resumo += f"• {i['qtd']}x {i['nome']} = De ~R$ {preco_de_unit:.2f}~ por *R$ {preco_unit:.2f}* (Total: *R$ {total_item_venda:.2f}*)\n\n"
             
             if taxa_entrega > 0:
-                resumo += f"🛵 *Taxa de Entrega:* R$ {taxa_entrega:.2f}\n"
+                resumo += f"🛵 *Taxa de Entrega:* R$ {taxa_entrega:.2f}\n\n"
                 
             resumo += f"-------------------\n*TOTAL A PAGAR: R$ {valor_total_final:.2f}*\n"
             resumo += f"🎉 *VOCÊ ECONOMIZOU: R$ {total_desconto_geral:.2f}*"
             
-            st.text_area("Comprovante WhatsApp:", value=resumo, height=250)
+            st.text_area("Comprovante WhatsApp:", value=resumo, height=260)
 
             # Link direto do WhatsApp
             num_envio = tel_limpo
@@ -276,29 +272,10 @@ with aba3:
         
         df_clientes = pd.DataFrame(lista_cli_exibicao)
         st.dataframe(df_clientes, use_container_width=True)
-        
-        st.markdown("### ✏️ Cadastrar ou Atualizar Cliente Manualmente")
-        with st.form("form_cliente_manual"):
-            m_tel = st.text_input("WhatsApp (com DDD):")
-            m_nome = st.text_input("Nome do Cliente:")
-            m_end = st.text_area("Endereço Completo:")
-            btn_salvar_cli = st.form_submit_button("💾 Salvar Cliente", use_container_width=True)
-            
-            if btn_salvar_cli:
-                t_limpo = re.sub(r'\D', '', m_tel)
-                if t_limpo and m_nome.strip():
-                    st.session_state.base_clientes[t_limpo] = {
-                        "nome": m_nome.strip().upper(),
-                        "endereco": m_end.strip()
-                    }
-                    st.success(f"✅ Cliente {m_nome.strip().upper()} salvo com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Preencha o WhatsApp e o Nome do cliente.")
 
 # ------------------------------------------------------------------------------
 # ABA 4: HISTÓRICO DE VENDAS
-# ------------------------------------------------------------------------------
+# --------------------------------------------------------------
 with aba4:
     st.subheader("📜 Histórico de Compras e Vendas")
     
