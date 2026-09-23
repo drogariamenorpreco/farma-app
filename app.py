@@ -1,133 +1,213 @@
-import streamlit as st
-import pandas as pd
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farma Búzios - Gestão & Vendas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
 
-# Configuração da página
-st.set_page_config(page_title="Farma Búzios - Vendas", page_icon="💊", layout="centered")
+    <!-- CABEÇALHO -->
+    <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-sky-400 flex items-center gap-2">
+                💊 Farma Búzios
+            </h1>
+            <div class="relative bg-slate-700 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-cart-shopping text-emerald-400"></i>
+                <span id="cartBadge">0</span>
+            </div>
+        </div>
+    </header>
 
-st.title("💊 Farma Búzios - Gestão & Vendas")
+    <main class="max-w-md mx-auto p-4 space-y-5">
 
-# --- INICIALIZAÇÃO DO ESTADO DA SESSÃO (CARRINHO E DADOS) ---
-if "carrinho" not in st.session_state:
-    st.session_state.carrinho = []
+        <!-- CAMPO DE PESQUISA COM LUPA -->
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
+            <label class="block text-sm font-semibold text-slate-300">Buscar Medicamento:</label>
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-400"></i>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    oninput="buscarProduto()" 
+                    placeholder="Digite o nome do medicamento..." 
+                    class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:border-sky-500 text-sm"
+                />
+            </div>
 
-# Base de dados de exemplo / simulada (Ajuste ou carregue o seu CSV aqui se necessário)
-@st.cache_data
-def carregar_produtos():
-    return pd.DataFrame([
-        {"id": 1, "nome": "ENTRESTO 49MG/51MG C/60 COMP", "preco_de": 374.92, "preco_por": 318.68, "estoque": 10},
-        {"id": 2, "nome": "DIPIRONA 500MG C/20 COMP", "preco_de": 12.00, "preco_por": 8.50, "estoque": 50},
-        {"id": 3, "nome": "DORFLEX C/36 COMP", "preco_de": 28.00, "preco_por": 22.90, "estoque": 30},
-        {"id": 4, "nome": "LOSARTANA POTÁSSICA 50MG C/30 COMP", "preco_de": 15.00, "preco_por": 9.90, "estoque": 40},
-    ])
+            <!-- RESULTADOS DA PESQUISA -->
+            <div id="searchResults" class="space-y-2 max-h-48 overflow-y-auto hidden"></div>
+        </div>
 
-df_produtos = carregar_produtos()
+        <!-- FORMULÁRIO DE ADIÇÃO (PRODUTO SELECIONADO) -->
+        <div id="selectedProdCard" class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3 hidden">
+            <h3 id="selectedName" class="font-bold text-sky-300 text-sm"></h3>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                    <label class="text-slate-400">Preço Final (R$):</label>
+                    <input type="number" id="selectedPrice" step="0.01" class="w-full bg-slate-900 border border-slate-700 p-2 rounded text-white font-bold mt-1">
+                </div>
+                <div>
+                    <label class="text-slate-400">Quantidade:</label>
+                    <input type="number" id="selectedQty" value="1" min="1" class="w-full bg-slate-900 border border-slate-700 p-2 rounded text-white font-bold mt-1">
+                </div>
+            </div>
+            <button onclick="confirmarAdicao()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-cart-plus"></i> Adicionar ao Carrinho
+            </button>
+        </div>
 
-# --- ÁREA DE SELEÇÃO E BUSCA DE MEDICAMENTOS ---
-st.markdown("### Selecione o Medicamento")
+        <!-- CARRINHO ACUMULADO (MANTÉM TODOS OS MEDICAMENTOS) -->
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
+            <h2 class="text-md font-bold text-slate-200 border-b border-slate-700 pb-2 flex justify-between items-center">
+                <span>🛒 Carrinho de Compras</span>
+                <span id="cartCountTotal" class="text-xs bg-slate-700 px-2 py-0.5 rounded text-emerald-400">0 itens</span>
+            </h2>
 
-# Seleção do Produto
-produto_nome = st.selectbox(
-    "Selecione:",
-    options=df_produtos["nome"].tolist(),
-    index=0
-)
+            <div id="cartItemsList" class="space-y-2 max-h-56 overflow-y-auto">
+                <p class="text-xs text-slate-400 text-center py-4">O carrinho está vazio.</p>
+            </div>
 
-# Obter dados do produto selecionado
-produto_info = df_produtos[df_produtos["nome"] == produto_nome].iloc[0]
+            <div class="border-t border-slate-700 pt-3 space-y-2 text-sm">
+                <div class="flex justify-between font-bold text-base">
+                    <span>Total a Pagar:</span>
+                    <span id="cartTotal" class="text-emerald-400">R$ 0,00</span>
+                </div>
+            </div>
+        </div>
 
-# Campos de Preço e Quantidade
-col1, col2 = st.columns(2)
-with col1:
-    preco_final = st.number_input(
-        "Preço de Venda Final (R$):",
-        value=float(produto_info["preco_por"]),
-        format="%.2f"
-    )
-with col2:
-    quantidade = st.number_input(
-        "Quantidade:",
-        min_value=1,
-        max_value=int(produto_info["estoque"]),
-        value=1,
-        step=1
-    )
+    </main>
 
-# Botão Adicionar ao Carrinho
-if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
-    # Procura se o item já está no carrinho
-    item_existente = next((item for item in st.session_state.carrinho if item["id"] == produto_info["id"]), None)
-    
-    if item_existente:
-        item_existente["quantidade"] += quantidade
-        item_existente["preco_unitario"] = preco_final
-    else:
-        st.session_state.carrinho.append({
-            "id": produto_info["id"],
-            "nome": produto_info["nome"],
-            "preco_de": produto_info["preco_de"],
-            "preco_unitario": preco_final,
-            "quantidade": quantidade
-        })
-    
-    st.success(f"✅ **{produto_nome}** adicionado ao carrinho!")
+    <script>
+        // BASE DE DADOS SIMULADA
+        const produtos = [
+            { id: 1, nome: "ENTRESTO 49MG/51MG C/60 COMP", precoDe: 374.92, precoPor: 318.68 },
+            { id: 2, nome: "DIPIRONA 500MG C/20 COMP", precoDe: 12.00, precoPor: 8.50 },
+            { id: 3, nome: "DORFLEX C/36 COMP", precoDe: 28.00, precoPor: 22.90 },
+            { id: 4, nome: "LOSARTANA POTÁSSICA 50MG C/30 COMP", precoDe: 15.00, precoPor: 9.90 },
+            { id: 5, nome: "NEOSALDINA C/20 DRÁGEAS", precoDe: 32.00, precoPor: 26.50 }
+        ];
 
-st.divider()
+        let carrinho = [];
+        let produtoSelecionadoAtual = null;
 
-# --- EXIBIÇÃO FIXA DO CARRINHO DE COMPRAS ---
-st.markdown("### 🛒 Carrinho de Compras (Itens Adicionados)")
+        function buscarProduto() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const resultsDiv = document.getElementById('searchResults');
+            resultsDiv.innerHTML = '';
 
-if len(st.session_state.carrinho) == 0:
-    st.info("Nenhum medicamento no carrinho no momento.")
-else:
-    subtotal_geral = 0.0
-    
-    # Lista cada item do carrinho acumulado
-    for idx, item in enumerate(st.session_state.carrinho):
-        subtotal_item = item["preco_unitario"] * item["quantidade"]
-        subtotal_geral += subtotal_item
-        
-        c1, c2, c3 = st.columns([3, 1, 1])
-        with c1:
-            st.markdown(f"**{item['quantidade']}x {item['nome']}**")
-            st.caption(f"De: R$ {item['preco_de']:.2f} | **Por: R$ {item['preco_unitario']:.2f} un.**")
-        with c2:
-            st.markdown(f"**R$ {subtotal_item:.2f}**")
-        with c3:
-            if st.button("🗑️", key=f"del_{idx}"):
-                st.session_state.carrinho.pop(idx)
-                st.rerun()
-        st.divider()
+            if (!query) {
+                resultsDiv.classList.add('hidden');
+                return;
+            }
 
-    # --- TAXA DE ENTREGA E DADOS DO CLIENTE ---
-    add_taxa = st.checkbox("🚚 Adicionar taxa de entrega?")
-    taxa_entrega = 0.0
-    if add_taxa:
-        taxa_entrega = st.number_input("Valor da taxa (R$):", min_value=0.0, value=5.0, step=1.0)
+            const filtrados = produtos.filter(p => p.nome.toLowerCase().includes(query));
 
-    nome_cliente = st.text_input("Nome do Cliente:")
-    whatsapp_cliente = st.text_input("WhatsApp (ex: 22999999999):")
+            if (filtrados.length === 0) {
+                resultsDiv.innerHTML = `<p class="text-xs text-slate-400 p-2">Nenhum medicamento encontrado.</p>`;
+            } else {
+                filtrados.forEach(p => {
+                    const item = document.createElement('div');
+                    item.className = "p-2 bg-slate-900 hover:bg-slate-700 rounded cursor-pointer text-xs flex justify-between items-center";
+                    item.innerHTML = `
+                        <span class="font-semibold text-slate-200">${p.nome}</span>
+                        <span class="text-emerald-400 font-bold">R$ ${p.precoPor.toFixed(2)}</span>
+                    `;
+                    item.onclick = () => selecionarProduto(p);
+                    resultsDiv.appendChild(item);
+                });
+            }
 
-    total_final = subtotal_geral + taxa_entrega
+            resultsDiv.classList.remove('hidden');
+        }
 
-    st.markdown(f"#### **Total a Pagar: R$ {total_final:.2f}**")
+        function selecionarProduto(prod) {
+            produtoSelecionadoAtual = prod;
+            document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('selectedName').innerText = prod.nome;
+            document.getElementById('selectedPrice').value = prod.precoPor.toFixed(2);
+            document.getElementById('selectedQty').value = 1;
+            document.getElementById('selectedProdCard').classList.remove('hidden');
+        }
 
-    # Botão para gerar comprovante/nota
-    if st.button("✅ GERAR NOTA E OPÇÕES", use_container_width=True):
-        st.success("Nota gerada com sucesso!")
-        
-        # Gerar texto para WhatsApp
-        msg_wa = f"*FARMA BÚZIOS*\n------------------------\n"
-        msg_wa += f"👤 Cliente: {nome_cliente if nome_cliente else 'Cliente'}\n"
-        msg_wa += "------------------------\n*ITENS:*\n"
-        for i in st.session_state.carrinho:
-            msg_wa += f"• {i['quantidade']}x {i['nome']} - R$ {i['preco_unitario']*i['quantidade']:.2f}\n"
-        if taxa_entrega > 0:
-            msg_wa += f"🛵 Taxa de Entrega: R$ {taxa_entrega:.2f}\n"
-        msg_wa += f"------------------------\n*TOTAL: R$ {total_final:.2f}*"
-        
-        st.text_area("Comprovante WhatsApp:", value=msg_wa, height=150)
-        
-        # Limpar carrinho após finalizar
-        if st.button("Limpar Carrinho"):
-            st.session_state.carrinho = []
-            st.rerun()
+        function confirmarAdicao() {
+            if (!produtoSelecionadoAtual) return;
+
+            const preco = parseFloat(document.getElementById('selectedPrice').value) || produtoSelecionadoAtual.precoPor;
+            const qty = parseInt(document.getElementById('selectedQty').value) || 1;
+
+            const itemExistente = carrinho.find(i => i.id === produtoSelecionadoAtual.id);
+            if (itemExistente) {
+                itemExistente.qty += qty;
+                itemExistente.preco = preco;
+            } else {
+                carrinho.push({
+                    id: produtoSelecionadoAtual.id,
+                    nome: produtoSelecionadoAtual.nome,
+                    precoDe: produtoSelecionadoAtual.precoDe,
+                    preco: preco,
+                    qty: qty
+                });
+            }
+
+            // Ocultar card de seleção e limpar campo de busca
+            document.getElementById('selectedProdCard').classList.add('hidden');
+            document.getElementById('searchInput').value = '';
+            produtoSelecionadoAtual = null;
+
+            renderCarrinho();
+        }
+
+        function renderCarrinho() {
+            const container = document.getElementById('cartItemsList');
+            container.innerHTML = '';
+
+            if (carrinho.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">O carrinho está vazio.</p>`;
+                document.getElementById('cartTotal').innerText = 'R$ 0,00';
+                document.getElementById('cartBadge').innerText = '0';
+                document.getElementById('cartCountTotal').innerText = '0 itens';
+                return;
+            }
+
+            let totalGeral = 0;
+            let totalQtd = 0;
+
+            carrinho.forEach((item, index) => {
+                const subtotal = item.preco * item.qty;
+                totalGeral += subtotal;
+                totalQtd += item.qty;
+
+                const div = document.createElement('div');
+                div.className = "p-2.5 bg-slate-900 rounded-lg flex justify-between items-center text-xs";
+                div.innerHTML = `
+                    <div>
+                        <p class="font-bold text-slate-200">${item.nome}</p>
+                        <p class="text-[11px] text-slate-400">
+                            ${item.qty}x R$ ${item.preco.toFixed(2)} = <strong class="text-emerald-400">R$ ${subtotal.toFixed(2)}</strong>
+                        </p>
+                    </div>
+                    <button onclick="removerItem(${index})" class="text-red-400 hover:text-red-300 p-1">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('cartTotal').innerText = `R$ ${totalGeral.toFixed(2)}`;
+            document.getElementById('cartBadge').innerText = totalQtd;
+            document.getElementById('cartCountTotal').innerText = `${totalQtd} itens`;
+        }
+
+        function removerItem(index) {
+            carrinho.splice(index, 1);
+            renderCarrinho();
+        }
+    </script>
+</body>
+</html>
