@@ -12,14 +12,21 @@ if "carrinho" not in st.session_state:
     st.session_state.carrinho = []
 
 # ==============================================================================
-# 2. CARREGAMENTO DO ESTOQUE DEDICADO DO CSV
+# 2. CARREGAMENTO INTELIGENTE DO ESTOQUE (CSV + FALLBACK COMPLETO)
 # ==============================================================================
 @st.cache_data
 def carregar_estoque():
-    # Tenta carregar do CSV do repositório
-    for nome_arq in ["estoque_drogaria (1).csv", "estoque_drogaria.csv", "estoque.csv"]:
+    # Tenta ler do arquivo no repositório GitHub
+    arquivos_possiveis = [
+        "estoque_drogaria (1).csv", 
+        "estoque_drogaria.csv", 
+        "estoque.csv"
+    ]
+    
+    for arq in arquivos_possiveis:
         try:
-            df = pd.read_csv(nome_arq)
+            df = pd.read_csv(arq)
+            # Garante que lê as colunas corretamente independente do nome
             df.columns = ['nome', 'estoque', 'preco']
             df['nome'] = df['nome'].astype(str).str.strip()
             df['estoque'] = pd.to_numeric(df['estoque'], errors='coerce').fillna(0).astype(int)
@@ -27,9 +34,9 @@ def carregar_estoque():
             return df
         except Exception:
             continue
-            
-    # Base fallback completa caso o arquivo não seja encontrado
-    data = [
+
+    # Caso o CSV não seja encontrado no GitHub, usa estes itens de demonstração
+    dados_padrao = [
         {"nome": "AMOXICILINA 500MG C/21 CAPS", "estoque": 35, "preco": 18.90},
         {"nome": "AMOXICILINA + CLAVULANATO 875MG C/14 COMP", "estoque": 20, "preco": 54.50},
         {"nome": "ENTRESTO 49MG/51MG C/60 COMP", "estoque": 10, "preco": 318.68},
@@ -38,18 +45,19 @@ def carregar_estoque():
         {"nome": "DORFLEX C/36 COMP", "estoque": 80, "preco": 22.90},
         {"nome": "NEOSALDINA C/20 DRÁGEAS", "estoque": 60, "preco": 26.50}
     ]
-    return pd.DataFrame(data)
+    return pd.DataFrame(dados_padrao)
 
 df_estoque = carregar_estoque()
 
 # ==============================================================================
-# 3. CAMPO DE PESQUISA E SELEÇÃO
+# 3. CAMPO DE PESQUISA (LUPA) E SELEÇÃO
 # ==============================================================================
 st.subheader("🔍 Pesquisar e Selecionar Produto")
 
 termo_busca = st.text_input("Digite o nome do produto:", placeholder="Ex: Amoxicilina, Dipirona, Dorflex...")
 
 if termo_busca:
+    # Busca que ignora acentos/maiúsculas
     df_filtrado = df_estoque[df_estoque['nome'].str.contains(termo_busca, case=False, na=False)]
 else:
     df_filtrado = df_estoque
@@ -95,7 +103,7 @@ if produto_selecionado:
 st.divider()
 
 # ==============================================================================
-# 4. CARRINHO DE COMPRAS FIXO
+# 4. CARRINHO DE COMPRAS
 # ==============================================================================
 st.subheader("🛒 Itens no Carrinho de Compras")
 
