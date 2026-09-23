@@ -7,13 +7,16 @@ from datetime import datetime
 st.set_page_config(page_title="FARMA BÚZIOS - PDV & Gestão", page_icon="💊", layout="centered")
 
 # ==============================================================================
-# 1. MEMÓRIA PERSISTENTE DO SISTEMA (SESSÃO & HISTÓRICO)
+# 1. MEMÓRIA PERSISTENTE DO SISTEMA (SESSÃO & HISTÓRICO & CLIENTES)
 # ==============================================================================
 if "carrinho" not in st.session_state:
     st.session_state.carrinho = []
 
 if "historico_vendas" not in st.session_state:
     st.session_state.historico_vendas = []
+
+if "base_clientes" not in st.session_state:
+    st.session_state.base_clientes = {}  # Formato: { "whatsapp": {"nome": "...", "endereco": "..."} }
 
 # ==============================================================================
 # 2. CARREGAMENTO DO ESTOQUE INICIAL
@@ -28,15 +31,14 @@ def carregar_estoque_inicial():
             df['nome'] = df['nome'].astype(str).str.strip()
             df['estoque'] = pd.to_numeric(df['estoque'], errors='coerce').fillna(0).astype(int)
             df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
-            df['pmc'] = df['preco'] * 1.30
             return df
         except Exception:
             continue
 
     return pd.DataFrame([
-        {"nome": "FORXIGA 10MG 30CP", "estoque": 1, "preco": 134.11, "pmc": 174.34},
-        {"nome": "AMOXICILINA 500MG C/21 CAPS", "estoque": 35, "preco": 18.90, "pmc": 24.57},
-        {"nome": "DIPIRONA 500MG C/20 COMP", "estoque": 100, "preco": 8.50, "pmc": 12.00}
+        {"nome": "FORXIGA 10MG 30CP", "estoque": 1, "preco": 134.11},
+        {"nome": "AMOXICILINA 500MG C/21 CAPS", "estoque": 35, "preco": 18.90},
+        {"nome": "DIPIRONA 500MG C/20 COMP", "estoque": 100, "preco": 8.50}
     ])
 
 if "base_produtos" not in st.session_state:
@@ -46,7 +48,7 @@ if "base_produtos" not in st.session_state:
 # 3. NAVEGAÇÃO POR ABAS
 # ==============================================================================
 st.title("💊 FARMA BÚZIOS")
-aba1, aba2, aba3 = st.tabs(["🛒 PDV / Vendas", "➕ Cadastrar Produto", "📜 Histórico de Vendas"])
+aba1, aba2, aba3, aba4 = st.tabs(["🛒 PDV / Vendas", "➕ Cadastrar Produto", "👥 Clientes", "📜 Histórico"])
 
 # ------------------------------------------------------------------------------
 # ABA 1: PDV / VENDAS
@@ -86,10 +88,8 @@ with aba1:
         with col_qtd:
             quantidade = st.number_input("Quantidade:", min_value=1, max_value=int(max(1, dados_prod['estoque'])), value=1, step=1, key="venda_qtd")
 
-        if 'pmc' in dados_prod and dados_prod['pmc'] > 0:
-            st.caption(f"PMC: **R$ {dados_prod['pmc']:.2f}** | Estoque disponível: **{dados_prod['estoque']} un.**")
-        else:
-            st.caption(f"Estoque disponível: **{dados_prod['estoque']} un.**")
+        preco_de_item = preco_final / 0.80
+        st.caption(f"🏷️ **Preço De:** ~R$ {preco_de_item:.2f}~ ➔ **Por:** R$ {preco_final:.2f} (20% OFF) | Estoque: **{dados_prod['estoque']} un.**")
 
         if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
             item_existente = next((item for item in st.session_state.carrinho if item["nome"] == produto_selecionado), None)
@@ -113,15 +113,19 @@ with aba1:
         st.info("O carrinho está vazio.")
     else:
         subtotal_geral = 0.0
+        total_desconto_geral = 0.0
         
         for idx, item in enumerate(st.session_state.carrinho):
             total_item = item["preco"] * item["qtd"]
             subtotal_geral += total_item
+            preco_de = item["preco"] / 0.80
+            economia_item = (preco_de - item["preco"]) * item["qtd"]
+            total_desconto_geral += economia_item
             
             c1, c2, c3 = st.columns([3, 1.5, 0.5])
             with c1:
                 st.markdown(f"**{item['qtd']}x {item['nome']}**")
-                st.caption(f"R$ {item['preco']:.2f} un.")
+                st.caption(f"De: ~R$ {preco_de:.2f}~ por **R$ {item['preco']:.2f} un.**")
             with c2:
                 st.markdown(f"**R$ {total_item:.2f}**")
             with c3:
@@ -130,68 +134,89 @@ with aba1:
                     st.rerun()
             st.divider()
 
-        # DADOS DE ENTREGA E CLIENTE
+        # DADOS DE ENTREGA E CLIENTE COM BUSCA AUTOMÁTICA POR TELEFONE
         add_taxa = st.checkbox("🚚 Adicionar taxa de entrega?")
         taxa_entrega = 0.0
         if add_taxa:
             taxa_entrega = st.number_input("Valor da Taxa (R$):", min_value=0.0, value=5.00, step=1.00)
 
-        nome_cliente = st.text_input("Nome do Cliente:", placeholder="Ex: Claudinei")
-        endereco_cliente = st.text_area("Endereço Completo de Entrega:", placeholder="Rua, Número, Bairro, Ponto de Referência...")
-        whatsapp_cliente = st.text_input("WhatsApp (ex: 24981279222 ou 22999999999):")
+        st.markdown("### 👤 Dados do Cliente")
+        whatsapp_input = st.text_input("WhatsApp (Digite o número para buscar cliente salvo):", placeholder="Ex: 24981279222")
+
+        # Limpar número para busca
+        tel_limpo = re.sub(r'\D', '', whatsapp_input)
+        
+        # Verificar se já existe cadastrado na base
+        cliente_encontrado = st.session_state.base_clientes.get(tel_limpo, {"nome": "", "endereco": ""})
+
+        nome_cliente = st.text_input("Nome do Cliente:", value=cliente_encontrado["nome"], placeholder="Ex: Claudinei")
+        endereco_cliente = st.text_area("Endereço Completo de Entrega:", value=cliente_encontrado["endereco"], placeholder="Rua, Número, Bairro, Ponto de Referência...")
 
         valor_total_final = subtotal_geral + taxa_entrega
         st.markdown(f"### **TOTAL DO PEDIDO: R$ {valor_total_final:.2f}**")
+        st.markdown(f"🎉 **Economia Total do Cliente: R$ {total_desconto_geral:.2f}**")
 
-        # BOTÃO GERAR NOTA, SALVAR NO HISTÓRICO E PREPARAR WHATSAPP
         if st.button("✅ GERAR NOTA E FINALIZAR PEDIDO", use_container_width=True):
             agora = datetime.now()
             data_formatada = agora.strftime("%d/%m/%Y")
             hora_formatada = agora.strftime("%H:%M:%S")
 
-            # Salvar automaticamente no Histórico de Vendas
+            # Salvar automaticamente cliente na base de clientes
+            if tel_limpo and nome_cliente.strip():
+                st.session_state.base_clientes[tel_limpo] = {
+                    "nome": nome_cliente.strip().upper(),
+                    "endereco": endereco_cliente.strip()
+                }
+
+            # Salvar no Histórico de Vendas
             itens_comprados_str = ", ".join([f"{i['qtd']}x {i['nome']} (R$ {i['preco']:.2f} un.)" for i in st.session_state.carrinho])
             
             registro_venda = {
                 "Data": data_formatada,
                 "Hora": hora_formatada,
                 "Cliente": nome_cliente.strip() if nome_cliente.strip() else "Cliente Não Informado",
-                "WhatsApp": whatsapp_cliente.strip(),
+                "WhatsApp": whatsapp_input.strip(),
                 "Endereço": endereco_cliente.strip(),
                 "Itens": itens_comprados_str,
                 "Subtotal (R$)": f"{subtotal_geral:.2f}",
                 "Taxa Entrega (R$)": f"{taxa_entrega:.2f}",
+                "Economia (R$)": f"{total_desconto_geral:.2f}",
                 "Total Pago (R$)": f"{valor_total_final:.2f}"
             }
             
             st.session_state.historico_vendas.append(registro_venda)
-            st.success("✅ Nota gerada e salva no Histórico de Vendas com sucesso!")
+            st.success("✅ Pedido finalizado, cliente salvo e registrado no histórico!")
 
             # Montar comprovante formatado
-            resumo = f"*FARMA BÚZIOS*\n-------------------\n"
+            resumo = "*FARMA BÚZIOS*\n-------------------\n"
             resumo += f"📅 *Data:* {data_formatada} às {hora_formatada}\n"
             resumo += f"👤 *Cliente:* {nome_cliente if nome_cliente else 'Cliente'}\n"
             if endereco_cliente.strip():
                 resumo += f"📍 *Endereço:* {endereco_cliente.strip()}\n"
             resumo += "-------------------\n*ITENS DO PEDIDO:*\n"
+            
             for i in st.session_state.carrinho:
-                resumo += f"• {i['qtd']}x {i['nome']} = R$ {i['preco']*i['qtd']:.2f}\n"
+                preco_unit = i['preco']
+                preco_de_unit = preco_unit / 0.80
+                total_item_venda = preco_unit * i['qtd']
+                resumo += f"• {i['qtd']}x {i['nome']} = De ~R$ {preco_de_unit:.2f}~ por *R$ {preco_unit:.2f}* (Total: *R$ {total_item_venda:.2f}*)\n"
             
             if taxa_entrega > 0:
                 resumo += f"🛵 *Taxa de Entrega:* R$ {taxa_entrega:.2f}\n"
                 
-            resumo += f"-------------------\n*TOTAL A PAGAR: R$ {valor_total_final:.2f}*"
+            resumo += f"-------------------\n*TOTAL A PAGAR: R$ {valor_total_final:.2f}*\n"
+            resumo += f"🎉 *VOCÊ ECONOMIZOU: R$ {total_desconto_geral:.2f}*"
             
-            st.text_area("Comprovante WhatsApp:", value=resumo, height=200)
+            st.text_area("Comprovante WhatsApp:", value=resumo, height=250)
 
             # Link direto do WhatsApp
-            num_limpo = re.sub(r'\D', '', whatsapp_cliente)
-            if num_limpo:
-                if len(num_limpo) in [10, 11]:
-                    num_limpo = "55" + num_limpo
+            num_envio = tel_limpo
+            if num_envio:
+                if len(num_envio) in [10, 11]:
+                    num_envio = "55" + num_envio
                 
                 msg_encoded = urllib.parse.quote(resumo)
-                link_whatsapp = f"https://wa.me/{num_limpo}?text={msg_encoded}"
+                link_whatsapp = f"https://wa.me/{num_envio}?text={msg_encoded}"
                 
                 st.markdown(f'<a href="{link_whatsapp}" target="_blank" style="text-decoration: none;"><div style="background-color: #25D366; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px; margin-top: 10px;">📲 Abrir e Enviar Pedido no WhatsApp</div></a>', unsafe_allow_html=True)
             else:
@@ -210,10 +235,8 @@ with aba2:
     
     with st.form("form_novo_produto", clear_on_submit=True):
         novo_nome = st.text_input("Nome / Descrição do Produto:")
-        c_pmc, c_preco, c_estoque = st.columns(3)
+        c_preco, c_estoque = st.columns(2)
         
-        with c_pmc:
-            novo_pmc = st.number_input("PMC (R$):", min_value=0.0, value=0.0, format="%.2f")
         with c_preco:
             novo_preco = st.number_input("Preço de Venda (R$):", min_value=0.0, value=0.0, format="%.2f")
         with c_estoque:
@@ -228,17 +251,55 @@ with aba2:
                 novo_item = pd.DataFrame([{
                     "nome": novo_nome.strip().upper(),
                     "estoque": int(novo_estoque),
-                    "preco": float(novo_preco),
-                    "pmc": float(novo_pmc)
+                    "preco": float(novo_preco)
                 }])
                 
                 st.session_state.base_produtos = pd.concat([novo_item, st.session_state.base_produtos], ignore_index=True)
                 st.success(f"🎉 **{novo_nome.strip().upper()}** cadastrado com sucesso e salvo no sistema!")
 
 # ------------------------------------------------------------------------------
-# ABA 3: HISTÓRICO DE VENDAS E REGISTROS
+# ABA 3: CLIENTES CADASTRADOS
 # ------------------------------------------------------------------------------
 with aba3:
+    st.subheader("👥 Clientes Cadastrados no Sistema")
+    
+    if len(st.session_state.base_clientes) == 0:
+        st.info("Nenhum cliente cadastrado ainda. Os clientes são salvos automaticamente ao finalizar um pedido!")
+    else:
+        lista_cli_exibicao = []
+        for tel, dados in st.session_state.base_clientes.items():
+            lista_cli_exibicao.append({
+                "WhatsApp": tel,
+                "Nome": dados["nome"],
+                "Endereço": dados["endereco"]
+            })
+        
+        df_clientes = pd.DataFrame(lista_cli_exibicao)
+        st.dataframe(df_clientes, use_container_width=True)
+        
+        st.markdown("### ✏️ Cadastrar ou Atualizar Cliente Manualmente")
+        with st.form("form_cliente_manual"):
+            m_tel = st.text_input("WhatsApp (com DDD):")
+            m_nome = st.text_input("Nome do Cliente:")
+            m_end = st.text_area("Endereço Completo:")
+            btn_salvar_cli = st.form_submit_button("💾 Salvar Cliente", use_container_width=True)
+            
+            if btn_salvar_cli:
+                t_limpo = re.sub(r'\D', '', m_tel)
+                if t_limpo and m_nome.strip():
+                    st.session_state.base_clientes[t_limpo] = {
+                        "nome": m_nome.strip().upper(),
+                        "endereco": m_end.strip()
+                    }
+                    st.success(f"✅ Cliente {m_nome.strip().upper()} salvo com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Preencha o WhatsApp e o Nome do cliente.")
+
+# ------------------------------------------------------------------------------
+# ABA 4: HISTÓRICO DE VENDAS
+# ------------------------------------------------------------------------------
+with aba4:
     st.subheader("📜 Histórico de Compras e Vendas")
     
     if len(st.session_state.historico_vendas) == 0:
