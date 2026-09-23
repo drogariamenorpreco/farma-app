@@ -12,66 +12,94 @@ st.title("💊 FARMA BÚZIOS - PDV")
 if "carrinho" not in st.session_state:
     st.session_state.carrinho = []
 
-# Base de produtos
+# ==============================================================================
+# 2. CARREGAMENTO DO ESTOQUE DEDICADO DO CSV
+# ==============================================================================
 @st.cache_data
 def carregar_estoque():
-    return [
-        {"id": 1, "nome": "CHOCOLATE GAROTO CARIBE 28G", "preco": 3.00},
-        {"id": 2, "nome": "ENTRESTO 49MG/51MG C/60 COMP", "preco": 318.68},
-        {"id": 3, "nome": "DIPIRONA 500MG C/20 COMP", "preco": 8.50},
-        {"id": 4, "nome": "DORFLEX C/36 COMP", "preco": 22.90},
-        {"id": 5, "nome": "NEOSALDINA C/20 DRÁGEAS", "preco": 26.50}
-    ]
+    try:
+        df = pd.read_csv("estoque_drogaria (1).csv")
+        df.columns = ['nome', 'estoque', 'preco']
+        df['nome'] = df['nome'].astype(str).str.strip()
+        df['estoque'] = pd.to_numeric(df['estoque'], errors='coerce').fillna(0).astype(int)
+        df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
+        return df
+    except Exception:
+        # Tenta nome alternativo caso o arquivo no repositório esteja sem espaços
+        try:
+            df = pd.read_csv("estoque_drogaria.csv")
+            df.columns = ['nome', 'estoque', 'preco']
+            df['nome'] = df['nome'].astype(str).str.strip()
+            df['estoque'] = pd.to_numeric(df['estoque'], errors='coerce').fillna(0).astype(int)
+            df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
+            return df
+        except Exception:
+            return pd.DataFrame([
+                {"nome": "ENTRESTO 49MG/51MG C/60 COMP", "estoque": 10, "preco": 318.68},
+                {"nome": "CHOCOLATE GAROTO CARIBE 28G", "estoque": 50, "preco": 3.00},
+                {"nome": "DIPIRONA 500MG C/20 COMP", "estoque": 100, "preco": 8.50},
+                {"nome": "DORFLEX C/36 COMP", "estoque": 80, "preco": 22.90}
+            ])
 
-produtos = carregar_estoque()
-lista_nomes = [p["nome"] for p in produtos]
+df_estoque = carregar_estoque()
 
 # ==============================================================================
-# 2. ÁREA DE PESQUISA E ADIÇÃO
+# 3. ÁREA DE PESQUISA COM LUPA E SELEÇÃO
 # ==============================================================================
-st.subheader("Selecione o produto:")
+st.subheader("🔍 Buscar e Selecionar Produto")
 
-# O campo possui busca por texto integrada (basta digitar o nome)
-produto_selecionado = st.selectbox(
-    "Selecione:",
-    options=lista_nomes,
-    index=0
-)
+# Campo de pesquisa por texto
+termo_busca = st.text_input("Digite o nome do produto:", placeholder="Ex: Dipirona, Dorflex, Caribe...")
 
-# Buscar preço padrão do produto escolhido
-dados_prod = next((p for p in produtos if p["nome"] == produto_selecionado), {"preco": 0.00})
+# Filtrar a lista completa conforme a busca
+if termo_busca:
+    df_filtrado = df_estoque[df_estoque['nome'].str.contains(termo_busca, case=False, na=False)]
+else:
+    df_filtrado = df_estoque
 
-col_preco, col_qtd = st.columns(2)
-with col_preco:
-    preco_final = st.number_input(
-        "Preço de Venda Final (R$):", 
-        value=float(dados_prod["preco"]), 
-        format="%.2f"
-    )
+lista_produtos = df_filtrado['nome'].tolist()
 
-with col_qtd:
-    quantidade = st.number_input("Quantidade:", min_value=1, value=1, step=1)
+if not lista_produtos:
+    st.warning("Nenhum produto encontrado.")
+    produto_selecionado = None
+else:
+    produto_selecionado = st.selectbox("Produtos encontrados na busca:", options=lista_produtos, index=0)
 
-# BOTÃO ADICIONAR (SALVA SEM APAGAR OS ANTERIORES)
-if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
-    # Procura se o produto já existe no carrinho para somar a quantidade
-    item_existente = next((item for item in st.session_state.carrinho if item["nome"] == produto_selecionado), None)
+if produto_selecionado:
+    dados_prod = df_estoque[df_estoque['nome'] == produto_selecionado].iloc[0]
     
-    if item_existente:
-        item_existente["qtd"] += quantidade
-        item_existente["preco"] = preco_final
-    else:
-        st.session_state.carrinho.append({
-            "nome": produto_selecionado,
-            "preco": preco_final,
-            "qtd": quantidade
-        })
-    st.success(f"✅ {produto_selecionado} adicionado!")
+    col_preco, col_qtd = st.columns(2)
+    with col_preco:
+        preco_final = st.number_input(
+            "Preço de Venda Final (R$):", 
+            value=float(dados_prod['preco']), 
+            format="%.2f"
+        )
+
+    with col_qtd:
+        quantidade = st.number_input("Quantidade:", min_value=1, max_value=int(max(1, dados_prod['estoque'])), value=1, step=1)
+
+    st.caption(f"Estoque em sistema: **{dados_prod['estoque']} un.**")
+
+    # BOTÃO ADICIONAR AO CARRINHO (SALVA SEM PERDER NADA)
+    if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
+        item_existente = next((item for item in st.session_state.carrinho if item["nome"] == produto_selecionado), None)
+        
+        if item_existente:
+            item_existente["qtd"] += quantidade
+            item_existente["preco"] = preco_final
+        else:
+            st.session_state.carrinho.append({
+                "nome": produto_selecionado,
+                "preco": preco_final,
+                "qtd": quantidade
+            })
+        st.success(f"✅ **{produto_selecionado}** adicionado ao carrinho!")
 
 st.divider()
 
 # ==============================================================================
-# 3. LISTA FIXA DO CARRINHO (MANTÉM TODOS OS ITENS VISÍVEIS)
+# 4. LISTA FIXA DO CARRINHO (ACUMULA TODOS OS ITENS)
 # ==============================================================================
 st.subheader("🛒 Itens no Carrinho de Compras")
 
@@ -80,7 +108,6 @@ if len(st.session_state.carrinho) == 0:
 else:
     subtotal_geral = 0.0
     
-    # Exibe cada item acumulado no carrinho
     for idx, item in enumerate(st.session_state.carrinho):
         total_item = item["preco"] * item["qtd"]
         subtotal_geral += total_item
@@ -92,13 +119,12 @@ else:
         with c2:
             st.markdown(f"**R$ {total_item:.2f}**")
         with c3:
-            # Botão para apagar item individual se necessário
             if st.button("🗑️", key=f"remover_{idx}"):
                 st.session_state.carrinho.pop(idx)
                 st.rerun()
         st.divider()
 
-    # --- TAXA E DADOS DO CLIENTE ---
+    # TAXA DE ENTREGA E DADOS DO CLIENTE
     add_taxa = st.checkbox("🚚 Adicionar taxa de entrega?")
     taxa_entrega = 0.0
     if add_taxa:
@@ -110,7 +136,7 @@ else:
     valor_total_final = subtotal_geral + taxa_entrega
     st.markdown(f"### **TOTAL DO PEDIDO: R$ {valor_total_final:.2f}**")
 
-    # BOTÃO GERAR NOTA / FINALIZAR
+    # BOTÃO GERAR NOTA E FINALIZAR
     if st.button("✅ GERAR NOTA E OPÇÕES", use_container_width=True):
         st.success("Nota gerada com sucesso!")
         
@@ -127,7 +153,6 @@ else:
         
         st.text_area("Comprovante WhatsApp:", value=resumo, height=150)
         
-        # Botão opcional para esvaziar o carrinho somente no final do pedido
         if st.button("Esvaziar Carrinho para Novo Pedido"):
             st.session_state.carrinho = []
             st.rerun()
