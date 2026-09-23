@@ -6,12 +6,13 @@ st.set_page_config(page_title="FARMA BÚZIOS - PDV", page_icon="💊", layout="c
 
 st.title("💊 FARMA BÚZIOS - PDV")
 
-# --- MEMÓRIA PERSISTENTE DO CARRINHO ---
-# Garante que os itens NÃO apaguem ao clicar em botões ou pesquisar novos produtos
+# ==============================================================================
+# 1. MEMÓRIA PERSISTENTE DO CARRINHO (NÃO APAGA AO PESQUISAR)
+# ==============================================================================
 if "carrinho" not in st.session_state:
     st.session_state.carrinho = []
 
-# Base de produtos (Exemplo - substitua ou conecte ao seu CSV se necessário)
+# Base de produtos
 @st.cache_data
 def carregar_estoque():
     return [
@@ -25,17 +26,19 @@ def carregar_estoque():
 produtos = carregar_estoque()
 lista_nomes = [p["nome"] for p in produtos]
 
-# --- CAMPO DE SELEÇÃO / PESQUISA ---
+# ==============================================================================
+# 2. ÁREA DE PESQUISA E ADIÇÃO
+# ==============================================================================
 st.subheader("Selecione o produto:")
 
-# O selectbox do Streamlit já possui pesquisa por digitação integrada
+# O campo possui busca por texto integrada (basta digitar o nome)
 produto_selecionado = st.selectbox(
     "Selecione:",
     options=lista_nomes,
     index=0
 )
 
-# Buscar preço do produto selecionado
+# Buscar preço padrão do produto escolhido
 dados_prod = next((p for p in produtos if p["nome"] == produto_selecionado), {"preco": 0.00})
 
 col_preco, col_qtd = st.columns(2)
@@ -49,9 +52,9 @@ with col_preco:
 with col_qtd:
     quantidade = st.number_input("Quantidade:", min_value=1, value=1, step=1)
 
-# BOTÃO ADICIONAR AO CARRINHO
+# BOTÃO ADICIONAR (SALVA SEM APAGAR OS ANTERIORES)
 if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
-    # Procura se o produto já está no carrinho acumulado
+    # Procura se o produto já existe no carrinho para somar a quantidade
     item_existente = next((item for item in st.session_state.carrinho if item["nome"] == produto_selecionado), None)
     
     if item_existente:
@@ -63,19 +66,21 @@ if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
             "preco": preco_final,
             "qtd": quantidade
         })
-    st.success(f"✅ {produto_selecionado} adicionado ao carrinho!")
+    st.success(f"✅ {produto_selecionado} adicionado!")
 
 st.divider()
 
-# --- LISTA VISÍVEL DO CARRINHO ACUMULADO ---
-st.subheader("🛒 Itens no Carrinho")
+# ==============================================================================
+# 3. LISTA FIXA DO CARRINHO (MANTÉM TODOS OS ITENS VISÍVEIS)
+# ==============================================================================
+st.subheader("🛒 Itens no Carrinho de Compras")
 
 if len(st.session_state.carrinho) == 0:
     st.info("O carrinho está vazio.")
 else:
     subtotal_geral = 0.0
     
-    # Exibe cada produto que já foi adicionado
+    # Exibe cada item acumulado no carrinho
     for idx, item in enumerate(st.session_state.carrinho):
         total_item = item["preco"] * item["qtd"]
         subtotal_geral += total_item
@@ -87,12 +92,13 @@ else:
         with c2:
             st.markdown(f"**R$ {total_item:.2f}**")
         with c3:
+            # Botão para apagar item individual se necessário
             if st.button("🗑️", key=f"remover_{idx}"):
                 st.session_state.carrinho.pop(idx)
                 st.rerun()
         st.divider()
 
-    # --- TAXA DE ENTREGA E DADOS DO CLIENTE ---
+    # --- TAXA E DADOS DO CLIENTE ---
     add_taxa = st.checkbox("🚚 Adicionar taxa de entrega?")
     taxa_entrega = 0.0
     if add_taxa:
@@ -102,16 +108,15 @@ else:
     whatsapp_cliente = st.text_input("WhatsApp (ex: 22999999999):")
 
     valor_total_final = subtotal_geral + taxa_entrega
-    st.markdown(f"### **TOTAL: R$ {valor_total_final:.2f}**")
+    st.markdown(f"### **TOTAL DO PEDIDO: R$ {valor_total_final:.2f}**")
 
-    # BOTÃO FINALIZAR
+    # BOTÃO GERAR NOTA / FINALIZAR
     if st.button("✅ GERAR NOTA E OPÇÕES", use_container_width=True):
         st.success("Nota gerada com sucesso!")
         
-        # Montar resumo para o WhatsApp
         resumo = f"*FARMA BÚZIOS*\n-------------------\n"
         resumo += f"👤 Cliente: {nome_cliente if nome_cliente else 'Cliente'}\n"
-        resumo += "-------------------\n*ITENS:*\n"
+        resumo += "-------------------\n*ITENS DO PEDIDO:*\n"
         for i in st.session_state.carrinho:
             resumo += f"• {i['qtd']}x {i['nome']} = R$ {i['preco']*i['qtd']:.2f}\n"
         
@@ -122,6 +127,7 @@ else:
         
         st.text_area("Comprovante WhatsApp:", value=resumo, height=150)
         
-        if st.button("Limpar e Novo Pedido"):
+        # Botão opcional para esvaziar o carrinho somente no final do pedido
+        if st.button("Esvaziar Carrinho para Novo Pedido"):
             st.session_state.carrinho = []
             st.rerun()
