@@ -1,16 +1,22 @@
 import streamlit as st
 import pandas as pd
+import urllib.parse
+import re
+from datetime import datetime
 
 st.set_page_config(page_title="FARMA BÚZIOS - PDV & Gestão", page_icon="💊", layout="centered")
 
 # ==============================================================================
-# 1. MEMÓRIA PERSISTENTE DO SISTEMA (AUTO-SAVE)
+# 1. MEMÓRIA PERSISTENTE DO SISTEMA (SESSÃO & HISTÓRICO)
 # ==============================================================================
 if "carrinho" not in st.session_state:
     st.session_state.carrinho = []
 
+if "historico_vendas" not in st.session_state:
+    st.session_state.historico_vendas = []
+
 # ==============================================================================
-# 2. CARREGAMENTO DO ESTOQUE
+# 2. CARREGAMENTO DO ESTOQUE INICIAL
 # ==============================================================================
 @st.cache_data
 def carregar_estoque_inicial():
@@ -22,12 +28,11 @@ def carregar_estoque_inicial():
             df['nome'] = df['nome'].astype(str).str.strip()
             df['estoque'] = pd.to_numeric(df['estoque'], errors='coerce').fillna(0).astype(int)
             df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
-            df['pmc'] = df['preco'] * 1.30  # PMC estimado inicial
+            df['pmc'] = df['preco'] * 1.30
             return df
         except Exception:
             continue
 
-    # Fallback caso ocorra falha de leitura
     return pd.DataFrame([
         {"nome": "FORXIGA 10MG 30CP", "estoque": 1, "preco": 134.11, "pmc": 174.34},
         {"nome": "AMOXICILINA 500MG C/21 CAPS", "estoque": 35, "preco": 18.90, "pmc": 24.57},
@@ -38,10 +43,10 @@ if "base_produtos" not in st.session_state:
     st.session_state.base_produtos = carregar_estoque_inicial()
 
 # ==============================================================================
-# 3. NAVEGAÇÃO POR ABAS (PDV E CADASTRO)
+# 3. NAVEGAÇÃO POR ABAS
 # ==============================================================================
 st.title("💊 FARMA BÚZIOS")
-aba1, aba2 = st.tabs(["🛒 PDV / Vendas", "➕ Cadastrar Produto"])
+aba1, aba2, aba3 = st.tabs(["🛒 PDV / Vendas", "➕ Cadastrar Produto", "📜 Histórico de Vendas"])
 
 # ------------------------------------------------------------------------------
 # ABA 1: PDV / VENDAS
@@ -125,39 +130,80 @@ with aba1:
                     st.rerun()
             st.divider()
 
+        # DADOS DE ENTREGA E CLIENTE
         add_taxa = st.checkbox("🚚 Adicionar taxa de entrega?")
         taxa_entrega = 0.0
         if add_taxa:
             taxa_entrega = st.number_input("Valor da Taxa (R$):", min_value=0.0, value=5.00, step=1.00)
 
-        nome_cliente = st.text_input("Nome do Cliente:")
-        whatsapp_cliente = st.text_input("WhatsApp (ex: 22999999999):")
+        nome_cliente = st.text_input("Nome do Cliente:", placeholder="Ex: Claudinei")
+        endereco_cliente = st.text_area("Endereço Completo de Entrega:", placeholder="Rua, Número, Bairro, Ponto de Referência...")
+        whatsapp_cliente = st.text_input("WhatsApp (ex: 24981279222 ou 22999999999):")
 
         valor_total_final = subtotal_geral + taxa_entrega
         st.markdown(f"### **TOTAL DO PEDIDO: R$ {valor_total_final:.2f}**")
 
-        if st.button("✅ GERAR NOTA E OPÇÕES", use_container_width=True):
-            st.success("Nota gerada com sucesso!")
+        # BOTÃO GERAR NOTA, SALVAR NO HISTÓRICO E PREPARAR WHATSAPP
+        if st.button("✅ GERAR NOTA E FINALIZAR PEDIDO", use_container_width=True):
+            agora = datetime.now()
+            data_formatada = agora.strftime("%d/%m/%Y")
+            hora_formatada = agora.strftime("%H:%M:%S")
+
+            # Salvar automaticamente no Histórico de Vendas
+            itens_comprados_str = ", ".join([f"{i['qtd']}x {i['nome']} (R$ {i['preco']:.2f} un.)" for i in st.session_state.carrinho])
             
+            registro_venda = {
+                "Data": data_formatada,
+                "Hora": hora_formatada,
+                "Cliente": nome_cliente.strip() if nome_cliente.strip() else "Cliente Não Informado",
+                "WhatsApp": whatsapp_cliente.strip(),
+                "Endereço": endereco_cliente.strip(),
+                "Itens": itens_comprados_str,
+                "Subtotal (R$)": f"{subtotal_geral:.2f}",
+                "Taxa Entrega (R$)": f"{taxa_entrega:.2f}",
+                "Total Pago (R$)": f"{valor_total_final:.2f}"
+            }
+            
+            st.session_state.historico_vendas.append(registro_venda)
+            st.success("✅ Nota gerada e salva no Histórico de Vendas com sucesso!")
+
+            # Montar comprovante formatado
             resumo = f"*FARMA BÚZIOS*\n-------------------\n"
-            resumo += f"👤 Cliente: {nome_cliente if nome_cliente else 'Cliente'}\n"
+            resumo += f"📅 *Data:* {data_formatada} às {hora_formatada}\n"
+            resumo += f"👤 *Cliente:* {nome_cliente if nome_cliente else 'Cliente'}\n"
+            if endereco_cliente.strip():
+                resumo += f"📍 *Endereço:* {endereco_cliente.strip()}\n"
             resumo += "-------------------\n*ITENS DO PEDIDO:*\n"
             for i in st.session_state.carrinho:
                 resumo += f"• {i['qtd']}x {i['nome']} = R$ {i['preco']*i['qtd']:.2f}\n"
             
             if taxa_entrega > 0:
-                resumo += f"🛵 Taxa de Entrega: R$ {taxa_entrega:.2f}\n"
+                resumo += f"🛵 *Taxa de Entrega:* R$ {taxa_entrega:.2f}\n"
                 
             resumo += f"-------------------\n*TOTAL A PAGAR: R$ {valor_total_final:.2f}*"
             
-            st.text_area("Comprovante WhatsApp:", value=resumo, height=150)
-            
-            if st.button("Limpar Carrinho (Novo Pedido)"):
-                st.session_state.carrinho = []
-                st.rerun()
+            st.text_area("Comprovante WhatsApp:", value=resumo, height=200)
+
+            # Link direto do WhatsApp
+            num_limpo = re.sub(r'\D', '', whatsapp_cliente)
+            if num_limpo:
+                if len(num_limpo) in [10, 11]:
+                    num_limpo = "55" + num_limpo
+                
+                msg_encoded = urllib.parse.quote(resumo)
+                link_whatsapp = f"https://wa.me/{num_limpo}?text={msg_encoded}"
+                
+                st.markdown(f'<a href="{link_whatsapp}" target="_blank" style="text-decoration: none;"><div style="background-color: #25D366; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px; margin-top: 10px;">📲 Abrir e Enviar Pedido no WhatsApp</div></a>', unsafe_allow_html=True)
+            else:
+                st.info("💡 Digite o número do WhatsApp acima para habilitar o botão de envio direto.")
+
+        st.divider()
+        if st.button("🧹 Limpar Carrinho (Novo Pedido)", use_container_width=True):
+            st.session_state.carrinho = []
+            st.rerun()
 
 # ------------------------------------------------------------------------------
-# ABA 2: CADASTRAR PRODUTO MANUALMENTE (AUTO-SAVE)
+# ABA 2: CADASTRAR PRODUTO MANUALMENTE
 # ------------------------------------------------------------------------------
 with aba2:
     st.subheader("📝 Cadastrar Novo Produto")
@@ -186,6 +232,27 @@ with aba2:
                     "pmc": float(novo_pmc)
                 }])
                 
-                # Auto-save: Atualiza a memória permanente da base
                 st.session_state.base_produtos = pd.concat([novo_item, st.session_state.base_produtos], ignore_index=True)
                 st.success(f"🎉 **{novo_nome.strip().upper()}** cadastrado com sucesso e salvo no sistema!")
+
+# ------------------------------------------------------------------------------
+# ABA 3: HISTÓRICO DE VENDAS E REGISTROS
+# ------------------------------------------------------------------------------
+with aba3:
+    st.subheader("📜 Histórico de Compras e Vendas")
+    
+    if len(st.session_state.historico_vendas) == 0:
+        st.info("Nenhuma venda registrada até o momento.")
+    else:
+        df_hist = pd.DataFrame(st.session_state.historico_vendas)
+        
+        st.dataframe(df_hist, use_container_width=True)
+        
+        csv_hist = df_hist.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Baixar Histórico Completo em CSV",
+            data=csv_hist,
+            file_name="historico_vendas_farma_buzios.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
