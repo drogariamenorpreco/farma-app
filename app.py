@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração da página
 st.set_page_config(page_title="FARMA BÚZIOS - PDV", page_icon="💊", layout="centered")
 
 st.title("💊 FARMA BÚZIOS - PDV")
 
 # ==============================================================================
-# 1. MEMÓRIA PERSISTENTE DO CARRINHO (NÃO APAGA AO PESQUISAR)
+# 1. MEMÓRIA PERSISTENTE DO CARRINHO
 # ==============================================================================
 if "carrinho" not in st.session_state:
     st.session_state.carrinho = []
@@ -17,41 +16,39 @@ if "carrinho" not in st.session_state:
 # ==============================================================================
 @st.cache_data
 def carregar_estoque():
-    try:
-        df = pd.read_csv("estoque_drogaria (1).csv")
-        df.columns = ['nome', 'estoque', 'preco']
-        df['nome'] = df['nome'].astype(str).str.strip()
-        df['estoque'] = pd.to_numeric(df['estoque'], errors='coerce').fillna(0).astype(int)
-        df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
-        return df
-    except Exception:
-        # Tenta nome alternativo caso o arquivo no repositório esteja sem espaços
+    # Tenta carregar do CSV do repositório
+    for nome_arq in ["estoque_drogaria (1).csv", "estoque_drogaria.csv", "estoque.csv"]:
         try:
-            df = pd.read_csv("estoque_drogaria.csv")
+            df = pd.read_csv(nome_arq)
             df.columns = ['nome', 'estoque', 'preco']
             df['nome'] = df['nome'].astype(str).str.strip()
             df['estoque'] = pd.to_numeric(df['estoque'], errors='coerce').fillna(0).astype(int)
             df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
             return df
         except Exception:
-            return pd.DataFrame([
-                {"nome": "ENTRESTO 49MG/51MG C/60 COMP", "estoque": 10, "preco": 318.68},
-                {"nome": "CHOCOLATE GAROTO CARIBE 28G", "estoque": 50, "preco": 3.00},
-                {"nome": "DIPIRONA 500MG C/20 COMP", "estoque": 100, "preco": 8.50},
-                {"nome": "DORFLEX C/36 COMP", "estoque": 80, "preco": 22.90}
-            ])
+            continue
+            
+    # Base fallback completa caso o arquivo não seja encontrado
+    data = [
+        {"nome": "AMOXICILINA 500MG C/21 CAPS", "estoque": 35, "preco": 18.90},
+        {"nome": "AMOXICILINA + CLAVULANATO 875MG C/14 COMP", "estoque": 20, "preco": 54.50},
+        {"nome": "ENTRESTO 49MG/51MG C/60 COMP", "estoque": 10, "preco": 318.68},
+        {"nome": "CHOCOLATE GAROTO CARIBE 28G", "estoque": 50, "preco": 3.00},
+        {"nome": "DIPIRONA 500MG C/20 COMP", "estoque": 100, "preco": 8.50},
+        {"nome": "DORFLEX C/36 COMP", "estoque": 80, "preco": 22.90},
+        {"nome": "NEOSALDINA C/20 DRÁGEAS", "estoque": 60, "preco": 26.50}
+    ]
+    return pd.DataFrame(data)
 
 df_estoque = carregar_estoque()
 
 # ==============================================================================
-# 3. ÁREA DE PESQUISA COM LUPA E SELEÇÃO
+# 3. CAMPO DE PESQUISA E SELEÇÃO
 # ==============================================================================
-st.subheader("🔍 Buscar e Selecionar Produto")
+st.subheader("🔍 Pesquisar e Selecionar Produto")
 
-# Campo de pesquisa por texto
-termo_busca = st.text_input("Digite o nome do produto:", placeholder="Ex: Dipirona, Dorflex, Caribe...")
+termo_busca = st.text_input("Digite o nome do produto:", placeholder="Ex: Amoxicilina, Dipirona, Dorflex...")
 
-# Filtrar a lista completa conforme a busca
 if termo_busca:
     df_filtrado = df_estoque[df_estoque['nome'].str.contains(termo_busca, case=False, na=False)]
 else:
@@ -60,7 +57,7 @@ else:
 lista_produtos = df_filtrado['nome'].tolist()
 
 if not lista_produtos:
-    st.warning("Nenhum produto encontrado.")
+    st.warning("Nenhum produto encontrado na busca.")
     produto_selecionado = None
 else:
     produto_selecionado = st.selectbox("Produtos encontrados na busca:", options=lista_produtos, index=0)
@@ -79,9 +76,8 @@ if produto_selecionado:
     with col_qtd:
         quantidade = st.number_input("Quantidade:", min_value=1, max_value=int(max(1, dados_prod['estoque'])), value=1, step=1)
 
-    st.caption(f"Estoque em sistema: **{dados_prod['estoque']} un.**")
+    st.caption(f"Estoque disponível: **{dados_prod['estoque']} un.**")
 
-    # BOTÃO ADICIONAR AO CARRINHO (SALVA SEM PERDER NADA)
     if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
         item_existente = next((item for item in st.session_state.carrinho if item["nome"] == produto_selecionado), None)
         
@@ -99,7 +95,7 @@ if produto_selecionado:
 st.divider()
 
 # ==============================================================================
-# 4. LISTA FIXA DO CARRINHO (ACUMULA TODOS OS ITENS)
+# 4. CARRINHO DE COMPRAS FIXO
 # ==============================================================================
 st.subheader("🛒 Itens no Carrinho de Compras")
 
@@ -124,7 +120,6 @@ else:
                 st.rerun()
         st.divider()
 
-    # TAXA DE ENTREGA E DADOS DO CLIENTE
     add_taxa = st.checkbox("🚚 Adicionar taxa de entrega?")
     taxa_entrega = 0.0
     if add_taxa:
@@ -136,7 +131,6 @@ else:
     valor_total_final = subtotal_geral + taxa_entrega
     st.markdown(f"### **TOTAL DO PEDIDO: R$ {valor_total_final:.2f}**")
 
-    # BOTÃO GERAR NOTA E FINALIZAR
     if st.button("✅ GERAR NOTA E OPÇÕES", use_container_width=True):
         st.success("Nota gerada com sucesso!")
         
@@ -153,6 +147,6 @@ else:
         
         st.text_area("Comprovante WhatsApp:", value=resumo, height=150)
         
-        if st.button("Esvaziar Carrinho para Novo Pedido"):
+        if st.button("Limpar Carrinho (Novo Pedido)"):
             st.session_state.carrinho = []
             st.rerun()
